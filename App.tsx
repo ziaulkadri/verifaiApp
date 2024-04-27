@@ -1,12 +1,5 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- */
-
 import React from 'react';
-import type {PropsWithChildren} from 'react';
+import type { PropsWithChildren } from 'react';
 import {
   SafeAreaView,
   ScrollView,
@@ -15,6 +8,8 @@ import {
   Text,
   useColorScheme,
   View,
+  Button,
+  Image,
 } from 'react-native';
 
 import {
@@ -29,8 +24,9 @@ type SectionProps = PropsWithChildren<{
   title: string;
 }>;
 
-function Section({children, title}: SectionProps): React.JSX.Element {
+function Section({ children, title }: SectionProps): React.JSX.Element {
   const isDarkMode = useColorScheme() === 'dark';
+  console.log("hey")
   return (
     <View style={styles.sectionContainer}>
       <Text
@@ -57,9 +53,27 @@ function Section({children, title}: SectionProps): React.JSX.Element {
 
 function App(): React.JSX.Element {
   const isDarkMode = useColorScheme() === 'dark';
+  const [imageUrl, setImageUrl] = React.useState<string>('');
 
   const backgroundStyle = {
     backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
+  };
+
+  const fetchDummyImage = () => {
+    console.log('Fetching dummy image')
+    fetch('https://via.placeholder.com/150')
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+        return response.url;
+      })
+      .then(url => {
+        setImageUrl(url);
+      })
+      .catch(error => {
+        console.error('There was a problem with the fetch operation:', error);
+      });
   };
 
   return (
@@ -72,6 +86,12 @@ function App(): React.JSX.Element {
         contentInsetAdjustmentBehavior="automatic"
         style={backgroundStyle}>
         <Header />
+        <Section title="Fetch Dummy Image">
+            <Button title="Fetch Dummy Image" onPress={fetchDummyImage} />
+            {imageUrl ? (
+              <Image source={{ uri: imageUrl }} style={{ width: 150, height: 150 }} />
+            ) : null}
+          </Section>
         <View
           style={{
             backgroundColor: isDarkMode ? Colors.black : Colors.white,
@@ -90,6 +110,7 @@ function App(): React.JSX.Element {
             Read the docs to discover what to do next:
           </Section>
           <LearnMoreLinks />
+
         </View>
       </ScrollView>
     </SafeAreaView>
