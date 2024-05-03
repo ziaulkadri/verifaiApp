@@ -4,6 +4,8 @@ export default abstract class NavigationConstants {
     static readonly splashScreen: string = '@SplashScreen';
     static readonly loginScreen: string = '@LoginScreen';
     static readonly searchVehicleScreen: string = '@SearchVehicleScreen';
+    static readonly damageRecordingScreen: string = '@DamageRecordingScreen';
+
 
 
   }

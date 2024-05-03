@@ -9,7 +9,8 @@ const sagaMiddleware = createSagaMiddleware()
 // mount it on the Store
 const verifaiStore = configureStore({
   reducer:verifaiAppRootReducer, 
-  middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(sagaMiddleware),
+  middleware: (getDefaultMiddleware) => getDefaultMiddleware({  serializableCheck: false
+  }).concat(sagaMiddleware),
 })
 
 // then run the saga

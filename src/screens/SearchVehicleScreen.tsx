@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/EvilIcons';
+import { getVehicleRequest } from '../store/actions';
+import { useDispatch } from 'react-redux';
+import { ACTION_GET_VEHICLE_REQUEST } from '../store/constants';
 
 const CustomTextInput = ({ value, onChangeText, placeholder, iconName, ...rest }) => {
   const [isFocused, setIsFocused] = useState(false);
 
   const handleTextChange = (text: string) => {
-    // Convert text to uppercase
     const uppercaseText = text.toUpperCase();
     onChangeText(uppercaseText);
   };
@@ -16,7 +18,7 @@ const CustomTextInput = ({ value, onChangeText, placeholder, iconName, ...rest }
       <TextInput
         style={[styles.textInput, isFocused && styles.focusedTextInput]}
         value={value}
-        onChangeText={handleTextChange} // Handle text change with uppercase conversion
+        onChangeText={handleTextChange}
         placeholder={placeholder}
         onFocus={() => setIsFocused(true)}
         onBlur={() => setIsFocused(false)}
@@ -31,10 +33,34 @@ const CustomTextInput = ({ value, onChangeText, placeholder, iconName, ...rest }
 
 const SearchVehicleScreen = () => {
   const [plateNumber, setPlateNumber] = useState('');
+  const [isValidPlate, setIsValidPlate] = useState(false);
+  const dispatch = useDispatch();
 
+
+  const handleVehicleInfo = (vehicleInfo: any) => {
+    // Do something with the vehicle info, such as updating state
+    console.log('Received vehicle info:', vehicleInfo);
+  };
   const handleSearchPress = () => {
-    // Handle search logic here, e.g., call an API to search for the vehicle
-    console.log('Searching for vehicle with plate number:', plateNumber);
+    if (plateNumber.trim() !== '') {
+      console.log('Searching for vehicle with plate number:', plateNumber);
+
+      const payload = {
+        plateNumber: plateNumber,
+        callback: handleVehicleInfo,
+      };
+      dispatch({ type: ACTION_GET_VEHICLE_REQUEST, payload });
+     
+      //dispatch(getVehicleRequest(payload));
+
+    } else {
+      console.log('Please enter a valid plate number');
+    }
+  };
+
+  const handlePlateChange = (text: string) => {
+    setPlateNumber(text);
+    setIsValidPlate(text.trim().length >= 3 && text.trim().length <= 10);
   };
 
   return (
@@ -44,11 +70,15 @@ const SearchVehicleScreen = () => {
           <Text style={styles.text}>Plate Number</Text>
           <CustomTextInput
             value={plateNumber}
-            onChangeText={setPlateNumber}
+            onChangeText={handlePlateChange}
             placeholder="Plate Number"
             iconName="search"
           />
-          <TouchableOpacity style={styles.buttonContainer} onPress={handleSearchPress}>
+          <TouchableOpacity
+            style={[styles.buttonContainer, !isValidPlate && styles.disabledButton]}
+            onPress={handleSearchPress}
+            disabled={!isValidPlate} // Disable button if plate number is not valid
+          >
             <Text style={styles.buttonText}>Search</Text>
           </TouchableOpacity>
         </View>
@@ -105,6 +135,9 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  disabledButton: {
+    backgroundColor: '#ccc', // Adjust for disabled state
   },
   buttonText: {
     color: '#fff',
