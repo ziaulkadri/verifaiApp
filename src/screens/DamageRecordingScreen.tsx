@@ -1,30 +1,30 @@
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused, useRoute } from '@react-navigation/native';
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { ScrollView } from 'react-native-gesture-handler';
 import * as Progress from 'react-native-progress';
 import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
-import { convertImageToBase64, isValidImage, truncateText } from '../utils/utils';
+import { convertImageToBase64, isValidImage, sortByDesiredOrder, truncateText } from '../utils/utils';
 import Toast from 'react-native-toast-message'
+import NavigationConstants from '../constants/NavigationConstants';
 
 const steps = [
-  { name: 'Back Driver Side Tyre', overlay: require('../../assets/images/suv/back-driver-side-tyre.png') },
-  { name: 'Back Opposite Side Tyre', overlay: require('../../assets/images/suv/back-opposite-side-tyre.png') },
-  { name: 'Bonnet', overlay: require('../../assets/images/suv/bonnet.png') },
-  { name: 'Driver Fender Panel First Door', overlay: require('../../assets/images/suv/driver-fender-panel-first-door.png') },
-  { name: 'Driver Head Light', overlay: require('../../assets/images/suv/driver-head-light.png') },
-  { name: 'Driver Second Door Quarter Panel', overlay: require('../../assets/images/suv/driver-second-door-quarter-panel.png') },
-  { name: 'Driver Tail Light', overlay: require('../../assets/images/suv/driver-tail-light.png') },
-  { name: 'Front Drive Side Tyre', overlay: require('../../assets/images/suv/front-driver-side-tyre.png') },
-  { name: 'Front Opposite Side Tyre', overlay: require('../../assets/images/suv/front-opposite-side-tyre.png') },
-  { name: 'Opposite Fender Panel First Door', overlay: require('../../assets/images/suv/opposite-fender-panel-first-door.png') },
-  { name: 'Opposite Head Light', overlay: require('../../assets/images/suv/opposite-head-light.png') },
-  { name: 'Opposite Second Door Quarter Panel', overlay: require('../../assets/images/suv/opposite-second-door-quarter-panel.png') },
-  { name: 'Opposite Tail Light', overlay: require('../../assets/images/suv/opposite-tail-light.png') },
-  { name: 'Trunk', overlay: require('../../assets/images/suv/trunk.png') },
+   { name: 'Back Driver Side Tyre', overlay: require('../../assets/images/suv/back-driver-side-tyre.png') },
+    { name: 'Back Opposite Side Tyre', overlay: require('../../assets/images/suv/back-opposite-side-tyre.png') },
+  //  { name: 'Bonnet', overlay: require('../../assets/images/suv/bonnet.png') },
+  // { name: 'Driver Fender Panel First Door', overlay: require('../../assets/images/suv/driver-fender-panel-first-door.png') },
+  // { name: 'Driver Head Light', overlay: require('../../assets/images/suv/driver-head-light.png') },
+  // { name: 'Driver Second Door Quarter Panel', overlay: require('../../assets/images/suv/driver-second-door-quarter-panel.png') },
+  // { name: 'Driver Tail Light', overlay: require('../../assets/images/suv/driver-tail-light.png') },
+  // { name: 'Front Drive Side Tyre', overlay: require('../../assets/images/suv/front-driver-side-tyre.png') },
+  // { name: 'Front Opposite Side Tyre', overlay: require('../../assets/images/suv/front-opposite-side-tyre.png') },
+  // { name: 'Opposite Fender Panel First Door', overlay: require('../../assets/images/suv/opposite-fender-panel-first-door.png') },
+  // { name: 'Opposite Head Light', overlay: require('../../assets/images/suv/opposite-head-light.png') },
+  // { name: 'Opposite Second Door Quarter Panel', overlay: require('../../assets/images/suv/opposite-second-door-quarter-panel.png') },
+  // { name: 'Opposite Tail Light', overlay: require('../../assets/images/suv/opposite-tail-light.png') },
+  // { name: 'Trunk', overlay: require('../../assets/images/suv/trunk.png') },
 ];
 
-const DamageRecordingScreen = () => {
+const DamageRecordingScreen = ({navigation}) => {
   const {hasPermission,requestPermission} =useCameraPermission()
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [capturedImages, setCapturedImages] = useState([]);
@@ -32,23 +32,36 @@ const DamageRecordingScreen = () => {
   const isFocused = useIsFocused()
   const [preview, setPreview]= useState(false);
   const [previewImage, setPreviewImage]= useState('');
-const [isCar,SetIsCar]= useState(false);
-  
+  const [isCar,SetIsCar]= useState(false);
+  const route = useRoute();
+  const data = route.params;
+  const [base64Data,setBase64Data] =useState({})
+
+  // console.log("vehicleinfo",data.vehicleInfo.angleTypes);
+
+  const steps = sortByDesiredOrder(data.vehicleInfo.angleTypes);
+
+  // console.log("steps",steps.map(step => step.name))
+
   const currentStep = steps[currentStepIndex];
   const prevStep = currentStepIndex > 0 ? steps[currentStepIndex - 1] : null;
   const nextStep = currentStepIndex < steps.length - 1 ? steps[currentStepIndex + 1] : null;
 
+  // console.log("curent",currentStep)
 
+  //console.log("data",data);
   const handleImageCapture = async () => {
     if (cameraRef.current && isFocused) {
       try {
         const image = await cameraRef.current.takePhoto();
         setPreviewImage('file://' + image.path);
         setPreview(true);
-        convertImageToBase64(image.path).then((base64) => {
+         convertImageToBase64(image.path).then((base64) => {
+          // Update the state by adding the new object to the array
+        //   //setBase64Data(prevImageData => [...prevImageData, newImageData]);
           isValidImage(currentStep.name,base64).then((response) => {
-            console.log("response",response);
             if(response[currentStep.name].is_car){
+              setBase64Data(prevImageData => ({ ...prevImageData, [currentStep.name]: base64 }));
               SetIsCar(true)
               Toast.show({
                 type: 'success',
@@ -65,7 +78,7 @@ const [isCar,SetIsCar]= useState(false);
           })
         }).catch((error) => {
           console.error("Error converting image to base64:", error);
-        });
+         });
       } catch (error) {
         console.error("Error capturing image:", error);
       }
@@ -81,7 +94,7 @@ const [isCar,SetIsCar]= useState(false);
     setCapturedImages([...capturedImages, previewImage]);
     moveToNextStep();
     SetIsCar(false)
-    console.log("preview iamge",previewImage)
+    // console.log("preview iamge",previewImage)
   };
 
   const handleCancel = () => {
@@ -109,21 +122,48 @@ const [isCar,SetIsCar]= useState(false);
 
    const progress = (capturedImages.length / steps.length) ;
 
+   if (capturedImages.length === steps.length){
+    const data = {
+      licence_plate: '17072024_1', // Example licence plate
+      ...base64Data, // Spread the imageData object to include all angle names and base64 images
+    };
+    console.log(steps)
+    navigation.navigate(NavigationConstants.processingScreen, { data:data,steps:steps })
+   }
+
+//    const handleSubmit = () => {
+
+// console.log("api call")
+//     const payload = {
+//       licence_plate: '17072024_1', // Example licence plate
+//       ...base64Data, // Spread the imageData object to include all angle names and base64 images
+//     };
+//     damageDetection(payload).then((response) => {
+//       console.log("response", response)
+//     }).catch((error) => {
+//     console.error("Error converting image to base64:", error);
+//   });
+//    }
+
   return (
     <>
     
     {preview ? 
     <>
     <View style={styles.fullImageContainer}>
+  
           <Image source={{ uri: previewImage }} style={styles.fullImage} />
-          {isCar && <View style={styles.buttonContainer}>
-          <TouchableOpacity style={styles.button} onPress={handleOkay}>
+           <View style={styles.buttonContainer}>
+           {isCar?
+           <>
+           <TouchableOpacity style={styles.button} onPress={handleOkay}>
               <Text style={styles.buttonText}>Okay</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.CancelButton} onPress={handleCancel}>
               <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>}
+            </TouchableOpacity></>:""}
+          
+          </View>
           
         </View>
     </>:
@@ -142,22 +182,28 @@ const [isCar,SetIsCar]= useState(false);
           <Text style={nextStep ? styles.NextStepName : styles.notAvilableStep}>{nextStep ? truncateText(nextStep.name) : ''}</Text>
         </View>
         <View style={styles.overlayContainer}>
-          <Image source={currentStep.overlay} style={styles.overlayImage} />
+          <Image source={{ uri: currentStep.overlay_image_path }} style={styles.overlayImage} />
         </View>
-        <TouchableOpacity style={styles.captureButton} onPress={handleImageCapture}>
+        <TouchableOpacity style={styles.captureButton} disabled={capturedImages.length === steps.length} onPress={handleImageCapture}>
         </TouchableOpacity>        
-        {capturedImages.length === steps.length && (
-          <ScrollView style={styles.capturedImagesContainer} horizontal={true}>
-            {capturedImages.map((image, index) => (
-              <Image key={index} source={{ uri: image }} style={styles.capturedImage} />
-            ))}
-          </ScrollView>
-        )}      
+        {/* {capturedImages.length === steps.length && (
+          // <ScrollView style={styles.capturedImagesContainer} horizontal={true}>
+          //   {capturedImages.map((image, index) => (
+          //     <Image key={index} source={{ uri: image }} style={styles.capturedImage} />
+          //   ))}
+          // </ScrollView>
+        //   <TouchableOpacity style={styles.button} onPress={handleSubmit}>
+        //       <Text style={styles.buttonText}>Submit</Text>
+        // </TouchableOpacity>        
+        )}       */}
       </View>
     }
     <Toast
         position='top'
         bottomOffset={20}
+        visibilityTime={2000}
+        autoHide={true}
+       
       />
     </>
   );
@@ -244,6 +290,7 @@ const styles = StyleSheet.create({
     width: '80%',
     height: '80%',
     resizeMode: 'contain',
+    transform: [{ rotate: '90deg' }],
   },
   captureButton: {
     width: 80,

@@ -7,6 +7,8 @@ import NavigationConstants from '../constants/NavigationConstants';
 import SplashScreen from './SplashScreen';
 import SearchVehicleScren from './SearchVehicleScreen';
 import DamageRecordingScreen from './DamageRecordingScreen';
+import ProcesssingScreen from './ProcessingScreen';
+import DamageResponseViewScreen from './DamageResponseViewScreen';
 // import LoginScreen from './LoginScreen';
 
 const Stack = createStackNavigator();
@@ -17,7 +19,7 @@ const MainScreen: React.FC = ({
     return (
       <NavigationContainer>
         <Stack.Navigator
-          initialRouteName={NavigationConstants.damageRecordingScreen}
+          initialRouteName={NavigationConstants.searchVehicleScreen}
           screenOptions={{
             headerShown: false,
             gestureEnabled: false,
@@ -32,13 +34,21 @@ const MainScreen: React.FC = ({
             name={NavigationConstants.loginScreen}
             component={LoginScreen}
           /> */}
-                    <Stack.Screen
+            <Stack.Screen
             name={NavigationConstants.searchVehicleScreen}
             component={SearchVehicleScren}
           />
-                              <Stack.Screen
+            <Stack.Screen
             name={NavigationConstants.damageRecordingScreen}
             component={DamageRecordingScreen}
+          />
+            <Stack.Screen
+            name={NavigationConstants.processingScreen}
+            component={ProcesssingScreen}
+          />
+            <Stack.Screen
+            name={NavigationConstants.damageResponseViewScreen}
+            component={DamageResponseViewScreen}
           />
         </Stack.Navigator>
       </NavigationContainer>

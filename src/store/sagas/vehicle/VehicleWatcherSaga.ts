@@ -2,20 +2,17 @@ import { takeLatest, put, call } from 'redux-saga/effects';
 import { ACTION_GET_VEHICLE_REQUEST } from '../../constants';
 import { GetVehicleRequest } from '../../actions';
 import axios from 'axios';
+import config from '../../../config/config';
 
 // Function to call the API to get vehicle information
 const getVehicleAPI = async (plateNumber:any) => {
   try {
-    // const response = await axios.get(`https://ziauls-macbook-pro.local/vehicle/find?plateNumber=${plateNumber}`);
-    // return response.data; // Assuming the response contains the data you need
-
-    const response = await axios.get(`https://ziauls-macbook-pro.local/api/vehicle/welcome?name=eh`);
-    console.log("RESPONSE",response)
-    return response.data; // Assuming the response contains the data you need
-    
+    console.log(config.BASE_URL,plateNumber);
+    const response = await axios.get(`${config.BASE_URL}/vehicle/find?plateNumber=${plateNumber}`);
+    return response.data;
   } catch (error) {
-    console.log(error);
-    throw new Error('Failed to fetch vehicle information');
+    console.log("Failed to fetch vehicle information",error);
+    //console.log('Failed to fetch vehicle information');
   }
 };
 

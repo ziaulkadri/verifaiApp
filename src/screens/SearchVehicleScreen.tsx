@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/EvilIcons';
-import { getVehicleRequest } from '../store/actions';
 import { useDispatch } from 'react-redux';
 import { ACTION_GET_VEHICLE_REQUEST } from '../store/constants';
+import { useNavigation } from '@react-navigation/native'; // Import for navigation
+import NavigationConstants from '../constants/NavigationConstants';
+import Toast from 'react-native-toast-message';
 
 const CustomTextInput = ({ value, onChangeText, placeholder, iconName, ...rest }) => {
   const [isFocused, setIsFocused] = useState(false);
 
   const handleTextChange = (text: string) => {
     const uppercaseText = text.toUpperCase();
+    console.log("text",text)
     onChangeText(uppercaseText);
   };
 
@@ -31,15 +34,25 @@ const CustomTextInput = ({ value, onChangeText, placeholder, iconName, ...rest }
   );
 };
 
-const SearchVehicleScreen = () => {
+const SearchVehicleScreen = ({navigation}) => {
   const [plateNumber, setPlateNumber] = useState('');
   const [isValidPlate, setIsValidPlate] = useState(false);
   const dispatch = useDispatch();
+  //const navigation = useNavigation();
 
 
   const handleVehicleInfo = (vehicleInfo: any) => {
     // Do something with the vehicle info, such as updating state
-    console.log('Received vehicle info:', vehicleInfo);
+
+    if(vehicleInfo?.error){
+      Toast.show({
+        type: 'error',
+        text1: 'Vehicle Not Found',
+      });
+      
+    }else if(vehicleInfo.plateNumber){
+      navigation.navigate(NavigationConstants.damageRecordingScreen, { vehicleInfo:vehicleInfo }); // Pass data
+    }
   };
   const handleSearchPress = () => {
     if (plateNumber.trim() !== '') {
@@ -64,6 +77,7 @@ const SearchVehicleScreen = () => {
   };
 
   return (
+    <>
     <View style={styles.container}>
       <View style={styles.upperContainer}>
         <View style={styles.card}>
@@ -84,6 +98,14 @@ const SearchVehicleScreen = () => {
         </View>
       </View>
     </View>
+            <Toast
+            position='top'
+            bottomOffset={20}
+            visibilityTime={2000}
+            autoHide={true}
+           
+          />
+          </>
   );
 };
 
@@ -124,6 +146,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
     paddingRight: 40, // Adjust to accommodate the icon
     textTransform: 'uppercase', // Convert text to uppercase
+    color: '#000',
   },
   focusedTextInput: {
     borderColor: '#00f', // Adjust for focused state
