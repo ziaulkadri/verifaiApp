@@ -1,5 +1,7 @@
 import axios from 'axios';
 import RNFS from 'react-native-fs';
+import RNFetchBlob, { FetchBlobResponse } from 'rn-fetch-blob';
+import config from '../config/config';
 
 const convertImageToBase64 = async (imagePath:any) => {
     try {
@@ -13,15 +15,18 @@ const convertImageToBase64 = async (imagePath:any) => {
   };
 
 
-  const isValidImage =async (angleName:any,base64Image:any)=>{
+  const isValidImage =async (angleName:any,base64Image:any,assessment_id:any)=>{
 
     //console.log("base64", angleName,base64Image);
+   // const id = generateUUID(7);
+  console.log(assessment_id)
 
     try {
         if (base64Image) {
           //console.log("base64", "base64Image");
             // Make API call with base64 image data
-            const response = await axios.post('https://38d8-125-17-251-66.ngrok-free.app/is_valid_image', { [angleName]: base64Image });
+            console.log("API call with base64 image")
+            const response = await axios.post('https://947a-125-17-251-66.ngrok-free.app/is_valid_image', {assessment_id: assessment_id, [angleName]: base64Image });
             return(response.data);
           } else {
             console.log('Failed to convert image to base64.');
@@ -36,7 +41,7 @@ const convertImageToBase64 = async (imagePath:any) => {
     try {
         
             // Make API call with base64 image data
-            const response = await axios.post('https://f120-125-17-251-66.ngrok-free.app/inference', data);
+            const response = await axios.post('https://947a-125-17-251-66.ngrok-free.app/inference', data);
 
             return(response.data);
           
@@ -88,7 +93,59 @@ const convertImageToBase64 = async (imagePath:any) => {
     return customSort;
 }
 
+interface ResponseData {
+  url: string;
+}
 
+const uploadFile = (path: string, angleName: string, data: any):Promise<{url: string}> => {
+  const sanitizedAngleName = angleName.replace(/\s+/g, '');
+
+  return new Promise((resolve, reject) => {
+    RNFetchBlob.fetch('POST', `${config.BASE_URL}/angleImages/upload`, {
+      otherHeader: "foo",
+      'Content-Type': 'multipart/form-data',
+    }, [
+      { name: 'vehicle_id', data: data.vehicle_id },
+      { name: 'client_id', data: data.client_id },
+      { name: 'file', filename: `${sanitizedAngleName}.jpg`, type: 'image/foo', data: RNFetchBlob.wrap(path) },
+    ]).then((resp) => {
+      const responseData: ResponseData = resp.json()
+      resolve(responseData);
+    }).catch((err) => {
+      reject(err);
+    });
+  });
+}
+
+ function generateUUID(digits:number) {
+  let str = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVXZ';
+  let uuid = [];
+  for (let i = 0; i < digits; i++) {
+      uuid.push(str[Math.floor(Math.random() * str.length)]);
+  }
+  return uuid.join('');
+}
+
+interface Coordinate {
+  x: number;
+  y: number;
+}
+
+const getDamageMidPoints = (angleName: string, data: any): { coordinates: Coordinate[] } => {
+  const angleData = data[angleName];
+  if (!angleData || !angleData.damage_polygon || angleData.damage_polygon.length === 0) {
+    return { coordinates: [] };
+  }
+
+  const coordinates = angleData.damage_polygon
+    .filter((damage: { denormalize_pt?: [number, number]; }) => damage.denormalize_pt)
+    .map((damage: { denormalize_pt: [number, number]; }) => {
+      const [x, y] = damage.denormalize_pt;
+      return { x, y };
+    });
+
+  return { coordinates };
+};
 
 
   export {
@@ -96,5 +153,8 @@ const convertImageToBase64 = async (imagePath:any) => {
     isValidImage,
     truncateText,
     damageDetection,
-    sortByDesiredOrder
+    sortByDesiredOrder,
+    uploadFile,
+    generateUUID,
+    getDamageMidPoints
   }

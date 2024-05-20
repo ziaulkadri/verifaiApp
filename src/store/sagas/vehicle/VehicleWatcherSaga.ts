@@ -7,7 +7,7 @@ import config from '../../../config/config';
 // Function to call the API to get vehicle information
 const getVehicleAPI = async (plateNumber:any) => {
   try {
-    console.log(config.BASE_URL,plateNumber);
+    //console.log(config.BASE_URL,plateNumber);
     const response = await axios.get(`${config.BASE_URL}/vehicle/find?plateNumber=${plateNumber}`);
     return response.data;
   } catch (error) {
@@ -18,7 +18,6 @@ const getVehicleAPI = async (plateNumber:any) => {
 
 // Saga function to handle the GET_VEHICLE_REQUEST action
 function* getVehicle(action: GetVehicleRequest): Generator<any, void, any> {
-  console.log('came here watcher saga')
     try {
     // Call the API to get vehicle information
     const vehicleInfo = yield call(getVehicleAPI, action.payload.plateNumber);

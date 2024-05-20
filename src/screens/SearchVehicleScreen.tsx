@@ -6,13 +6,13 @@ import { ACTION_GET_VEHICLE_REQUEST } from '../store/constants';
 import { useNavigation } from '@react-navigation/native'; // Import for navigation
 import NavigationConstants from '../constants/NavigationConstants';
 import Toast from 'react-native-toast-message';
+import { generateUUID } from '../utils/utils';
 
 const CustomTextInput = ({ value, onChangeText, placeholder, iconName, ...rest }) => {
   const [isFocused, setIsFocused] = useState(false);
 
   const handleTextChange = (text: string) => {
     const uppercaseText = text.toUpperCase();
-    console.log("text",text)
     onChangeText(uppercaseText);
   };
 
@@ -51,6 +51,8 @@ const SearchVehicleScreen = ({navigation}) => {
       });
       
     }else if(vehicleInfo.plateNumber){
+      const assessment_id=generateUUID(10)
+      vehicleInfo.assessment_id=assessment_id
       navigation.navigate(NavigationConstants.damageRecordingScreen, { vehicleInfo:vehicleInfo }); // Pass data
     }
   };
