@@ -8,7 +8,7 @@ let screenWidth = Dimensions.get('window').width;
 let screenHeight = Dimensions.get('window').height;
 
 /**
- * Converts provided width percentage to independent pixel (dp).
+ * Converts provided width percentage to independent pixel (dp)...
  * @param  {string} widthPercent The percentage of screen's width that UI element should cover
  *                               along with the percentage symbol (%).
  * @return {number}              The calculated dp depending on current device's screen width.

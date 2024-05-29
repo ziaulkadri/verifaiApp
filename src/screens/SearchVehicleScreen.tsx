@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/EvilIcons';
 import { useDispatch } from 'react-redux';
 import { ACTION_GET_VEHICLE_REQUEST } from '../store/constants';
-import { useNavigation } from '@react-navigation/native'; // Import for navigation
+import { useIsFocused, useNavigation } from '@react-navigation/native'; // Import for navigation
 import NavigationConstants from '../constants/NavigationConstants';
 import Toast from 'react-native-toast-message';
 import { generateUUID } from '../utils/utils';
+import Orientation, { OrientationType } from 'react-native-orientation-locker';
 
 const CustomTextInput = ({ value, onChangeText, placeholder, iconName, ...rest }) => {
   const [isFocused, setIsFocused] = useState(false);
@@ -38,6 +39,10 @@ const SearchVehicleScreen = ({navigation}) => {
   const [plateNumber, setPlateNumber] = useState('');
   const [isValidPlate, setIsValidPlate] = useState(false);
   const dispatch = useDispatch();
+  const isFocused = useIsFocused();
+  const [orientation, setOrientation] = useState(Orientation.getInitialOrientation());
+
+
   //const navigation = useNavigation();
 
 
@@ -72,6 +77,25 @@ const SearchVehicleScreen = ({navigation}) => {
       console.log('Please enter a valid plate number');
     }
   };
+
+  useEffect(() => {
+    const handleOrientationChange = (newOrientation: OrientationType | ((prevState: OrientationType) => OrientationType)) => {
+      setOrientation(newOrientation);
+    };
+
+    if (isFocused) {
+      Orientation.lockToPortrait();
+      Orientation.addOrientationListener(handleOrientationChange);
+    } else {
+      Orientation.unlockAllOrientations();
+      Orientation.removeOrientationListener(handleOrientationChange);
+    }
+
+    return () => {
+      Orientation.unlockAllOrientations();
+      Orientation.removeOrientationListener(handleOrientationChange);
+    };
+  }, [isFocused]);
 
   const handlePlateChange = (text: string) => {
     setPlateNumber(text);

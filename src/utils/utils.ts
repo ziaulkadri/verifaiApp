@@ -2,6 +2,8 @@ import axios from 'axios';
 import RNFS from 'react-native-fs';
 import RNFetchBlob, { FetchBlobResponse } from 'rn-fetch-blob';
 import config from '../config/config';
+import ImagePicker from 'react-native-image-crop-picker';
+import ImageEditor from '@react-native-community/image-editor';
 
 const convertImageToBase64 = async (imagePath:any) => {
     try {
@@ -26,7 +28,8 @@ const convertImageToBase64 = async (imagePath:any) => {
           //console.log("base64", "base64Image");
             // Make API call with base64 image data
             console.log("API call with base64 image")
-            const response = await axios.post('https://947a-125-17-251-66.ngrok-free.app/is_valid_image', {assessment_id: assessment_id, [angleName]: base64Image });
+            const response = await axios.post('https://f9ed-125-17-251-66.ngrok-free.app/is_valid_image', {assessment_id: assessment_id, [angleName]: base64Image });
+            console.log(response.data)
             return(response.data);
           } else {
             console.log('Failed to convert image to base64.');
@@ -41,7 +44,7 @@ const convertImageToBase64 = async (imagePath:any) => {
     try {
         
             // Make API call with base64 image data
-            const response = await axios.post('https://947a-125-17-251-66.ngrok-free.app/inference', data);
+            const response = await axios.post('https://f9ed-125-17-251-66.ngrok-free.app/inference', data);
 
             return(response.data);
           
@@ -59,7 +62,24 @@ const convertImageToBase64 = async (imagePath:any) => {
   };
 
   function sortByDesiredOrder(tables: { name: string }[]) {
-    const importOrder: string[] = [
+    const importOrder: string[] = 
+  //   [
+  //     "Front",
+  //     "Right Head Light",
+  //     "Right Front Fender and Door",
+  //     "Right Front Tyre",
+  //     "Right Rear Fender and Door",
+  //     "Right Rear Tyre",
+  //     "Right Tail Light",
+  //     "Trunk",
+  //     "Left Tail Light",
+  //     "Left Rear Tyre",
+  //     "Left Rear Fender and Door",
+  //     "Left Front Fender and Door",
+  //     "Left Front Tyre",
+  //     "Left Headlight"
+  // ]
+    [
         'Bonnet',
         'Driver Head Light',
         'Driver Fender Panel First Door',
@@ -80,6 +100,8 @@ const convertImageToBase64 = async (imagePath:any) => {
         ...item,
         name: item.name.trim().replace(/\n/g, '') // Remove leading/trailing whitespace and newline characters
     }));
+
+    //console.log(sanitizedTables.map(t =>t.name))
 
     const sortByObject: { [name: string]: number } = importOrder.reduce((obj, item, index) => {
         return {
@@ -148,6 +170,27 @@ const getDamageMidPoints = (angleName: string, data: any): { coordinates: Coordi
 };
 
 
+const cropImage = async (imageUrl: string) => {
+  try {
+    const cropData = {
+      offset: { x: 454, y: 319 },
+      size: { width: 1147 - 454, height: 1156 - 319 },
+      displaySize: { width: 1147 - 454, height: 1156 - 319 },
+      //resizeMode: 'contain',
+    };
+    ImageEditor.cropImage(imageUrl, cropData)
+    .then((url) => {
+      console.log('Cropped image URI:', url);
+      return(url);
+    })
+  } catch (err) {
+    console.error('Error cropping image:', err);
+    return null; // Or handle the error gracefully
+  }
+};
+
+
+  
   export {
     convertImageToBase64,
     isValidImage,
@@ -156,5 +199,6 @@ const getDamageMidPoints = (angleName: string, data: any): { coordinates: Coordi
     sortByDesiredOrder,
     uploadFile,
     generateUUID,
-    getDamageMidPoints
+    getDamageMidPoints,
+    cropImage
   }
