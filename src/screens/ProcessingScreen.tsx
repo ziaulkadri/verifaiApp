@@ -20,26 +20,29 @@ const ProcesssingScreen = ({navigation}) => {
     const [processingText, setProcessingText] = useState('Processing');
 
 
+   
+
 // const id = generateUUID(5);
 //   console.log(id)
 
 
 
-// useEffect(() => {
-//   if (isFocused) {
-//     Orientation.lockToPortrait();
-//   } 
-// }, [isFocused]);
+useEffect(() => {
+  if (isFocused) {
+    Orientation.lockToPortrait();
+  } 
+  console.log(data.data.licence_plate)
+}, [isFocused]);
 
-// useEffect(() => {
-//   const interval = setInterval(() => {
-//     setProcessingText((prev) =>
-//       prev.endsWith('.....') ? 'Processing' : `${prev}.`
-//     );
-//   }, 500);
+useEffect(() => {
+  const interval = setInterval(() => {
+    setProcessingText((prev) =>
+      prev.endsWith('.....') ? 'Processing' : `${prev}.`
+    );
+  }, 500);
 
-//   return () => clearInterval(interval);
-// }, []);
+  return () => clearInterval(interval);
+}, []);
 
 // const payload ={
 //   "Back Driver Side Tyre": "https://verifaistor.blob.core.windows.net/verifai/data/b3638d91-b352-41c1-956d-72845341e30e/311402c5-bb16-4eac-af9d-ac5cbad127c6/1716540610303/processed/images/BackDriverSideTyre.jpg", 
@@ -62,33 +65,44 @@ const ProcesssingScreen = ({navigation}) => {
 // }
 
 
-// const payload={
-//   licence_plate: data.data.licence_plate,
-//   assessment_id: data.data.assessment_id,
-//   ...data.data.scannedImageUrls
-// }
+const payload={
+  licence_plate: data.data.licence_plate,
+  assessment_id: data.data.assessment_id,
+  ...data.data.scannedImageUrls
+}
 
-    // useEffect(() => {
-    //     if (data.data.licence_plate) {
-    //       console.log("API call", data.data.assessment_id, data.data.licence_plate);
+
+// console.log("plate",data.data.licence_plate)
+// console.log("assessment",data.data.assessment_id)
+// console.log("scannedurl",data.data.scannedImageUrls)
+//console.log("scannedurllocal",data.data.scannedImageUrlsLocal)
+
+
+
+//console.log("payload",payload)
+
+    useEffect(() => {
+        if (data.data.licence_plate) {
+          //console.log("API call", data.data.assessment_id, data.data.licence_plate);
           
-    //       damageDetection(payload)
-    //         .then((response) => {
-    //             navigation.navigate(NavigationConstants.damageResponseViewScreen, { payload:payload,scannedImageLocal:data.data.scannedImageLocal,response:response })
-    //        })
-    //         .catch((error) => {
-    //           console.error("Error in detecting damages", error);
-    //         });
-    //     }
-    //   }, [data.data?.licence_plate]);
+          damageDetection(payload)
+            .then((response) => {
+              //console.log("response",response);
+                navigation.navigate(NavigationConstants.damageResponseViewScreen, { payload:payload,scannedImageLocal:data.data.scannedImageUrlsLocal,response:response })
+           })
+            .catch((error) => {
+              console.error("Error in detecting damages", error);
+            });
+        }
+      }, [data.data?.licence_plate]);
 
   return (
     <View style={styles.container}>
       <View style={styles.upperContainer}>
-        <CarDetection/>
-       {/* <ActivityIndicator size={100} color="#1631C2" />
+        {/* <CarDetection/> */}
+       <ActivityIndicator size={100} color="#1631C2" />
       <Text style={styles.processingText}>{processingText}</Text>
-      <Text style={styles.assessmenText}>{`Assessment ID: ${data.data.assessment_id}`}</Text> */}
+      <Text style={styles.assessmenText}>{`Assessment ID: ${data.data.assessment_id}`}</Text>
       </View>
     </View>
   );

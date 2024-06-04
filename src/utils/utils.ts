@@ -4,6 +4,7 @@ import RNFetchBlob, { FetchBlobResponse } from 'rn-fetch-blob';
 import config from '../config/config';
 import ImagePicker from 'react-native-image-crop-picker';
 import ImageEditor from '@react-native-community/image-editor';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const convertImageToBase64 = async (imagePath:any) => {
     try {
@@ -21,15 +22,18 @@ const convertImageToBase64 = async (imagePath:any) => {
 
     //console.log("base64", angleName,base64Image);
    // const id = generateUUID(7);
-  console.log(assessment_id)
+  //console.log(assessment_id)
+
+  const modelUrl = await AsyncStorage.getItem('modelUrl')
+  console.log("modelUrl",modelUrl)
 
     try {
         if (base64Image) {
           //console.log("base64", "base64Image");
             // Make API call with base64 image data
-            console.log("API call with base64 image")
-            const response = await axios.post('https://f9ed-125-17-251-66.ngrok-free.app/is_valid_image', {assessment_id: assessment_id, [angleName]: base64Image });
-            console.log(response.data)
+            //console.log("API call with base64 image")
+            const response = await axios.post(`${modelUrl}/is_valid_image`, {assessment_id: assessment_id, [angleName]: base64Image });
+            //console.log(response.data)
             return(response.data);
           } else {
             console.log('Failed to convert image to base64.');
@@ -41,10 +45,12 @@ const convertImageToBase64 = async (imagePath:any) => {
   }
 
   const damageDetection =async (data:any)=>{
+    const modelUrl = await AsyncStorage.getItem('modelUrl')
+
     try {
         
             // Make API call with base64 image data
-            const response = await axios.post('https://f9ed-125-17-251-66.ngrok-free.app/inference', data);
+            const response = await axios.post(`${modelUrl}/inference`, data);
 
             return(response.data);
           
@@ -54,7 +60,7 @@ const convertImageToBase64 = async (imagePath:any) => {
     }
   }
   const truncateText = (text: string) => {
-    const maxLength = 12; // Maximum length of the text to display
+    const maxLength = 5; // Maximum length of the text to display
     if (text.length > maxLength) {
       return text.substring(0, maxLength) + '...'; // Truncate text and add ellipsis
     }
@@ -63,38 +69,38 @@ const convertImageToBase64 = async (imagePath:any) => {
 
   function sortByDesiredOrder(tables: { name: string }[]) {
     const importOrder: string[] = 
-  //   [
-  //     "Front",
-  //     "Right Head Light",
-  //     "Right Front Fender and Door",
-  //     "Right Front Tyre",
-  //     "Right Rear Fender and Door",
-  //     "Right Rear Tyre",
-  //     "Right Tail Light",
-  //     "Trunk",
-  //     "Left Tail Light",
-  //     "Left Rear Tyre",
-  //     "Left Rear Fender and Door",
-  //     "Left Front Fender and Door",
-  //     "Left Front Tyre",
-  //     "Left Headlight"
-  // ]
     [
-        'Bonnet',
-        'Driver Head Light',
-        'Driver Fender Panel First Door',
-        'Front Driver Side Tyre',
-        'Driver Second Door Quarter Panel',
-        'Back Driver Side Tyre',
-        'Driver Tail Light',
-        'Trunk',
-        'Opposite Tail Light',
-        'Back Opposite Side Tyre',
-        'Opposite Second Door Quarter Panel',
-        'Opposite Fender Panel First Door',
-        'Front Opposite Side Tyre',
-        'Opposite Head Light'
-    ];
+      "Front",
+      "Right Head Light",
+      "Right Front Fender and Door",
+      "Right Front Tyre",
+      "Right Rear Fender and Door",
+      "Right Rear Tyre",
+      "Right Tail Light",
+      "Trunk",
+      "Left Tail Light",
+      "Left Rear Tyre",
+      "Left Rear Fender and Door",
+      "Left Front Fender and Door",
+      "Left Front Tyre",
+      "Left Headlight"
+  ]
+    // [
+    //     'Bonnet',
+    //     'Driver Head Light',
+    //     'Driver Fender Panel First Door',
+    //     'Front Driver Side Tyre',
+    //     'Driver Second Door Quarter Panel',
+    //     'Back Driver Side Tyre',
+    //     'Driver Tail Light',
+    //     'Trunk',
+    //     'Opposite Tail Light',
+    //     'Back Opposite Side Tyre',
+    //     'Opposite Second Door Quarter Panel',
+    //     'Opposite Fender Panel First Door',
+    //     'Front Opposite Side Tyre',
+    //     'Opposite Head Light'
+    // ];
 
     const sanitizedTables = tables.map(item => ({
         ...item,

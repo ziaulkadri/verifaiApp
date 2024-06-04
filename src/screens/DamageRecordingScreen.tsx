@@ -44,6 +44,8 @@ const DamageRecordingScreen = ({navigation}) => {
   const [isPortrait, setIsPortrait] = useState(
     dimensions.height > dimensions.width,
   );
+  const [processingText, setProcessingText] = useState('Processing Image');
+
 
   useEffect(() => {
     const handleOrientationChange = ({window}) => {
@@ -64,6 +66,17 @@ const DamageRecordingScreen = ({navigation}) => {
       orientationChangeListener?.remove();
     };
   }, [hasPermission]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setProcessingText((prev) =>
+        prev.endsWith('.....') ? 'Processing Image' : `${prev}.`
+      );
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, []);
+
 
   const vehicleInfoData = {
     client_id: data.vehicleInfo.client_id,
@@ -118,10 +131,14 @@ const DamageRecordingScreen = ({navigation}) => {
           });
         }
       } catch (error) {
-        console.error('Error capturing image:', error);
+        Toast.show({
+          type: 'error',
+          text1: `${error}`,
+        });
+        console.log('Error capturing image:', error);
       }
     } else {
-      console.warn('Camera is not focused or not available');
+      console.log('Camera is not focused or not available');
     }
   };
 
@@ -170,10 +187,11 @@ const DamageRecordingScreen = ({navigation}) => {
           />
           {!isPortrait && (
             <>
+            <View style={{position: 'absolute', alignItems: 'center',left: hp('2%'),transform: [{rotate: '-90deg'}]}}>
               <Progress.Bar
                 progress={progress}
                 style={{position: 'absolute', top: hp('4%')}}
-                width={wp('65%')}
+                width={wp('40%')}
                 height={hp('6%')}
                 borderRadius={hp('5%')}
                 color="#63C85A"
@@ -197,7 +215,7 @@ const DamageRecordingScreen = ({navigation}) => {
                           paddingVertical: hp('2.5%'),
                           backgroundColor: '#CED5DB',
                           margin: 1,
-                          width: wp('15%'),
+                          width: wp('11%'),
                           textAlign: 'center',
                           color: '#000',
                         }
@@ -208,7 +226,7 @@ const DamageRecordingScreen = ({navigation}) => {
                           padding: wp('2%'),
                           borderRadius: wp('10%'),
                           margin: 0.2,
-                          width: wp('15%'),
+                          width: wp('11%'),
                           textAlign: 'center',
                           color: '#000',
                         }
@@ -224,7 +242,7 @@ const DamageRecordingScreen = ({navigation}) => {
                       paddingHorizontal: wp('2%'),
                       backgroundColor: '#5E9FE4',
                       margin: 1,
-                      width: wp('35%'),
+                      width: wp('18%'),
                       textAlign: 'center',
                       color: '#000',
                     },
@@ -242,7 +260,7 @@ const DamageRecordingScreen = ({navigation}) => {
                           paddingVertical: hp('2.5%'),
                           backgroundColor: '#CED5DB',
                           margin: 1,
-                          width: wp('15%'),
+                          width: wp('11%'),
                           textAlign: 'center',
                           color: '#000',
                         }
@@ -253,13 +271,14 @@ const DamageRecordingScreen = ({navigation}) => {
                           padding: wp('2%'),
                           borderRadius: wp('10%'),
                           margin: 0.2,
-                          width: wp('15%'),
+                          width: wp('11%'),
                           textAlign: 'center',
                           color: '#000',
                         }
                   }>
                   {nextStep ? truncateText(nextStep.name) : ''}
                 </Text>
+              </View>
               </View>
               <View
                 style={{
@@ -304,6 +323,28 @@ const DamageRecordingScreen = ({navigation}) => {
               resizeMode: 'contain',
             }}
           />
+          <View
+        style={{
+          position: 'absolute',
+          bottom: hp('10%'),
+          //right: '35%',
+          //transform: [{ translateX: -wp('25%') }, { translateY: -hp('2.5%') }],
+          //backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          padding: wp('2%'),
+          borderRadius: wp('1%'),
+        }}
+      >
+        <Text
+          style={{
+            color: '#5E9FE4',
+            fontSize: wp('3%'),
+            fontWeight: 'bold',
+            textAlign: 'center',
+          }}
+        >
+          {processingText}
+        </Text>
+      </View>
         </View>
       )}
       <Toast

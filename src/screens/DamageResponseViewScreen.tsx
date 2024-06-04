@@ -7,10 +7,12 @@ import { getDamageMidPoints } from '../utils/utils';
 import Orientation from 'react-native-orientation-locker';
 import DrawPolygonOnImage from '../components/DrawPolygonOnImage';
 import CustomSwitch from '../components/CustomSwitch';
+import { widthPercentageToDP as wp, heightPercentageToDP as hp } from '../utils/Responsiveness';
 
 const DamageResponseViewScreen = ({ navigation }) => {
   const route = useRoute();
   const data = route.params;
+  console.log(data);
   // const sanitizedImageData = { ...data.data };
   // delete sanitizedImageData['licence_plate'];
   // delete sanitizedImageData['assessment_id'];
@@ -42,7 +44,7 @@ const DamageResponseViewScreen = ({ navigation }) => {
 
   const currentImageKey = imageKeys[currentIndex];
 
-  console.log("localimage",data.scannedImageLocal)
+  //console.log("localimage",data.scannedImageLocal)
 
   // console.log("response",data.response[currentImageKey]?.ploted_damage)
 
@@ -70,130 +72,113 @@ const DamageResponseViewScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.headerText}>Damages</Text>
-      <View style={styles.upperContainer}>
-      <View >
-          <DrawMarkOnImage coordinates={result.coordinates}/>
+    <Text style={styles.headerText}>Damages</Text>
+    <View style={styles.upperContainer}>
+      <View>
+        <DrawMarkOnImage coordinates={result.coordinates} />
+      </View>
+      <View style={styles.carouselContainer}>
+        <View style={styles.switchRow}>
+          <CustomSwitch label={'Damage'} onToggle={handleDamageToggle} />
+          <CustomSwitch label={'Panel'} onToggle={handlePolygonToggle} />
         </View>
-       <View style={styles.carouselContainer}>
-       {/* <TouchableOpacity style={styles.damageEnalble} onPress={() => navigation.navigate(NavigationConstants.searchVehicleScreen)}>
-        <Text style={styles.damageText}>Damage</Text>
-      </TouchableOpacity> */}
-      <View style={styles.switchRow}>
-      <CustomSwitch label={'Damage'} onToggle={handleDamageToggle}/>
-      <CustomSwitch label={'Panel'} onToggle={handlePolygonToggle}/>
-      </View>
         <View style={styles.imageContainer}>
-      <TouchableOpacity onPress={handlePrev} disabled={currentIndex === 0}>
-        <Text style={[styles.navigationText, { color: currentIndex === 0 ? 'grey' : 'black',paddingRight:16}]}>{'<'}</Text>
-      </TouchableOpacity>
-      <DrawPolygonOnImage imageSource={imageData} cropCordinate={cropCordinate} panelPolygon={panelPolygon} damagePolygon={damagePolygon} showDamagePolygon={damageSwitch}
-              showPanelPolygon={polygonSwitch} />
-      <TouchableOpacity onPress={handleNext} disabled={currentIndex === imageKeys.length - 1}>
-        <Text style={[styles.navigationText, { color: currentIndex === imageKeys.length - 1? 'grey' : 'black',paddingLeft:16}]}>{'>'}</Text>
-      </TouchableOpacity>
-      </View>
-      <Text style={styles.angleName}>{currentImageKey}</Text>
-      
+          <TouchableOpacity onPress={handlePrev} disabled={currentIndex === 0}>
+            <Text style={[styles.navigationText, { color: currentIndex === 0 ? 'grey' : 'black', paddingRight: 16 }]}>{'<'}</Text>
+          </TouchableOpacity>
+          <DrawPolygonOnImage
+            imageSource={imageData}
+            cropCordinate={cropCordinate}
+            panelPolygon={panelPolygon}
+            damagePolygon={damagePolygon}
+            showDamagePolygon={damageSwitch}
+            showPanelPolygon={polygonSwitch}
+          />
+          <TouchableOpacity onPress={handleNext} disabled={currentIndex === imageKeys.length - 1}>
+            <Text style={[styles.navigationText, { color: currentIndex === imageKeys.length - 1 ? 'grey' : 'black', paddingLeft: 16 }]}>{'>'}</Text>
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.angleName}>{currentImageKey}</Text>
       </View>
       <TouchableOpacity style={styles.finalizeBtn} onPress={() => navigation.navigate(NavigationConstants.searchVehicleScreen)}>
         <Text style={styles.finalizeText}>Finalize</Text>
       </TouchableOpacity>
-      </View>
     </View>
-  );
+  </View>
+);
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 20,
-    backgroundColor: '#1631C2',
-  },
-  headerText: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: 'white',
-    textAlign: 'center',
-  },
-  upperContainer: {
-    flex: 1,
-    padding: 5,
-    backgroundColor: '#fff',
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    marginTop: 20,
-    justifyContent:'space-evenly',
-    alignItems: 'center',
-  },
-  carouselContainer:{
-    height: '50%',
-    //justifyContent: 'center',
-    //alignItems: 'center',
-    borderBlockColor: '#000',
-    borderRadius: 20,
-    shadowColor: '#000',
-    borderColor: '#000',
-    borderWidth:1,
-  },
-  imageContainer:{
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    flexDirection: 'row',
-    marginHorizontal:50
-  },
-  image: {
-    width: 280,
-    height: 300,
-    resizeMode: 'contain',
-    //transform: [{ rotate: '-90deg' }],
-  },
-  navigationText: {
-    fontSize: 41,
-    fontWeight: 'bold',
-    color: 'blue',
-  },
-  angleName:{
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: 'black',
-    padding: 5,
-    textAlign: 'center',
-    position: 'relative',
-    marginBottom: 20,
-  },
-  finalizeText:{
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: 'white',
-    letterSpacing:5
-  },
-  finalizeBtn:{
-    backgroundColor: '#1631C2',
-    width: 340,
-    height: 50,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderColor: 'blue',
-    borderWidth: 2,
-    marginTop: 10,
-  },
-  bluePrintImage:{
-    width: 350, 
-    height: 180, 
-    resizeMode: 'contain',
-    borderWidth: 1,
-    borderColor: 'black',
-  },
-  switchRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
-    width: '100%',
-  },
+container: {
+  flex: 1,
+  padding: wp('5%'),
+  backgroundColor: '#1631C2',
+},
+headerText: {
+  fontSize: wp('6%'),
+  fontWeight: 'bold',
+  color: 'white',
+  textAlign: 'center',
+},
+upperContainer: {
+  flex: 1,
+  padding: wp('2%'),
+  backgroundColor: '#fff',
+  borderRadius: wp('5%'),
+  marginTop: hp('2%'),
+  justifyContent: 'space-evenly',
+  alignItems: 'center',
+},
+carouselContainer: {
+  height: hp('50%'),
+  borderRadius: wp('5%'),
+  shadowColor: '#000',
+  borderColor: '#000',
+  borderWidth: 1,
+},
+imageContainer: {
+  flex: 1,
+  justifyContent: 'center',
+  alignItems: 'center',
+  flexDirection: 'row',
+  marginHorizontal: wp('12%'),
+},
+navigationText: {
+  fontSize: wp('10%'),
+  fontWeight: 'bold',
+  color: 'blue',
+},
+angleName: {
+  fontSize: wp('4%'),
+  fontWeight: 'bold',
+  color: 'black',
+  padding: hp('1%'),
+  textAlign: 'center',
+  marginBottom: hp('2%'),
+},
+finalizeText: {
+  fontSize: wp('5%'),
+  fontWeight: 'bold',
+  color: 'white',
+  letterSpacing: wp('1%'),
+},
+finalizeBtn: {
+  backgroundColor: '#1631C2',
+  width: wp('80%'),
+  height: hp('7%'),
+  borderRadius: wp('5%'),
+  justifyContent: 'center',
+  alignItems: 'center',
+  borderColor: 'blue',
+  borderWidth: 2,
+  marginTop: hp('2%'),
+},
+switchRow: {
+  flexDirection: 'row',
+  justifyContent: 'flex-start',
+  width: '100%',
+  marginBottom: hp('1%'),
+},
 });
 
 export default DamageResponseViewScreen;

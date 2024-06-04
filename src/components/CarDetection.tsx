@@ -10,7 +10,7 @@ import { decode } from 'jpeg-js';
 
 // const imageSource = Image.resolveAssetSource(require('../../assets/images/carImage.jpeg')).uri;
 // console.log(imageSource);
-const imageSource = Image.resolveAssetSource(require('../../assets/images/carImage.jpeg')).uri;
+const imageSource = Image.resolveAssetSource(require('../../assets/images/trunk.jpeg')).uri;
 const CarDetection = () => {
   const [selectedImage, setSelectedImage] = useState();
   const [output, setOutput] = useState<string | undefined>();
@@ -33,14 +33,13 @@ const CarDetection = () => {
         100,
         undefined, 
     undefined, 
-    undefined, 
-    {
-          mode:"stretch"
-        }
+    undefined,
+    { mode: "stretch" } // Adjust resizing options as needed
       );
   
-      // Read the resized image file as base64 string
+      // Read the resized image file as base64 string.
       const base64Image = await RNFS.readFile(resizedImage.uri, 'base64');
+      //console.log(base64Image);
       const uIntArray = Base64Binary.decode(base64Image);
 
     // Decode JPEG to raw pixel data
@@ -48,7 +47,7 @@ const CarDetection = () => {
 
     // Check if the decoded image has the expected format
     if (!decodedImage || !decodedImage.data) {
-      throw new Error('Failed to decode image');
+      throw new Error('Failed to decode image.');
     }
 
     // Convert the flat array to a 3D array (height x width x channels)
@@ -56,8 +55,14 @@ const CarDetection = () => {
     const width = decodedImage.width;
     const channels = 3; // RGB
 
+
+    //console.log("Pixel values of the first index:", ((decodedImage.data[0]/255.0)-0.485)/0.229);
+
     // Initialize the tensor array
     const tensor: number[][][][] = [[[[], [], []]]];
+    //let loggedValues = 0;
+    const mean = [0.485, 0.456, 0.406];
+    const std = [0.229, 0.224, 0.225];
    for (let c = 0; c < channels; c++) {
       const channelData: number[][] = [];
       for (let y = 0; y < height; y++) {
@@ -65,10 +70,15 @@ const CarDetection = () => {
         for (let x = 0; x < width; x++) {
           const pixelIndex = (y * width + x) * channels;
           const pixelValue = decodedImage.data[pixelIndex + c] / 255.0; // Normalize
-          const mean = [0.485, 0.456, 0.406][c];
-          const std = [0.229, 0.224, 0.225][c];
-          const standardizedValue = (pixelValue - mean) / std; // Standardize
+          // const mean = [0.485, 0.456, 0.406][c];
+          // const std = [0.229, 0.224, 0.225][c];
+          const standardizedValue = (pixelValue - mean[c]) / std[c]; // Standardize
+          //console.log("value------", standardizedValue,pixelValue,mean,std)
           row.push(standardizedValue);
+          // loggedValues++;
+          // if (loggedValues >= 2) {
+          //   break;
+          // }
         }
         channelData.push(row);
       }
@@ -77,6 +87,7 @@ const CarDetection = () => {
 
     // Log the shape of the tensor
     //const tensorShape = [1, channels, height, width];
+    //console.log(tensor)
     return tensor.flat().flat().flat();
     } catch (error) {
       console.error('Error processing image:', error);
@@ -140,12 +151,13 @@ const CarDetection = () => {
         : `${RNFS.MainBundlePath}/models/carDetection.onnx`;
 
       // Load your model using the appropriate library/method for your use case
-      console.log('Loading model from:', 'file://' + modelPath);
+      //console.log('Loading model from:', 'file://' + modelPath);
       try {
       const session: ort.InferenceSession = await ort.InferenceSession.create("file://"+modelPath);
 
-      console.log('Loading model', session.inputNames,session.outputNames)
+      //console.log('Loading model', session.inputNames,session.outputNames)
 
+      let start = Date.now();
       const normalizedImage = await resizeAndNormalizeImage(imageSource);
 
       const inputTensor = new ort.Tensor("float32", normalizedImage, [1, 3, 224, 224]); // Adjust shape and type as needed
@@ -159,8 +171,23 @@ const CarDetection = () => {
       const result = await session.run(onnxValueMap,["465"]);
       if (result) {
         console.log("Inference Result:", result);
+        const keys = {0:'headlight', 1:'taillight', 2:'trunk', 3:'fender_panel', 4:'bonnet',5: 'alloy', 6:'quater_panel'}
+        //@ts-ignore
+const cpuData = result["465"].cpuData;
+        const maxValue = Math.max(...cpuData);
+const maxIndex = cpuData.indexOf(maxValue);
+
+// Map the max value to its index in keys
+//@ts-ignore
+const maxKey = keys[maxIndex];
+
+console.log("Maximum Value:", maxValue);
+console.log("Index of Maximum Value:", maxIndex);
+console.log("Key of Maximum Value:", maxKey);
+let timeTaken = Date.now() - start;
+console.log("Total time taken : " + timeTaken + " milliseconds");
     } else {
-        console.error("Error: Invalid result from inference session.");
+        console.error("Error: Invalid result from inference session.....");
     }
     } catch (e) {
       console.log('Error:', e);
@@ -297,10 +324,14 @@ const CarDetection = () => {
   
   useEffect(() => {
     const init = async () => {
+      let start = Date.now();
+
       const modelUrl = getModelUrl('src/model/carDetection.onnx');
       const localModelPath = `${RNFS.DocumentDirectoryPath}/carDetection.onnx`;
       await downloadModelFile(modelUrl, localModelPath);
       await loadModel();
+      let timeTaken = Date.now() - start;
+      console.log("Total time taken : " + timeTaken + " milliseconds");
     };
 
     init();
