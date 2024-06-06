@@ -1,29 +1,30 @@
 import React, { useEffect, useState } from 'react';
-import { View, Button, Image, Text, StyleSheet, Platform, Alert, NativeModules } from 'react-native';
+import { View, Button, Image, Text, StyleSheet, Platform, Alert, NativeModules, ImageResolvedAssetSource } from 'react-native';
 import { launchImageLibrary as _launchImageLibrary, launchCamera as _launchCamera } from 'react-native-image-picker';
 import RNFS from 'react-native-fs';
 import ImageResizer from 'react-native-image-resizer';
 import * as ort from "onnxruntime-react-native";
 import { Base64Binary } from '../utils/processingUtils';
-import { decode } from 'jpeg-js';
+import { decode, encode } from 'jpeg-js';
 
 
 // const imageSource = Image.resolveAssetSource(require('../../assets/images/carImage.jpeg')).uri;
 // console.log(imageSource);
-const imageSource = Image.resolveAssetSource(require('../../assets/images/trunk.jpeg')).uri;
+const imageSource = Image.resolveAssetSource(require('../../assets/carImages/Opposite_Tail_Light.jpg')).uri;
 const CarDetection = () => {
   const [selectedImage, setSelectedImage] = useState();
   const [output, setOutput] = useState<string | undefined>();
 
 
   // const carDetectionModel = useTensorflowModel(require('../assets/model/mobilenet_v1_1.0_224_quant.tflite'));
-  // const model = carDetectionModel.state === "loaded" ? carDetectionModel.model : undefined;
+  // const model = carDetectionModel.state === "loaded" ? carDetedctionModel.model : undefined;
 
   // Load the model using the absolute file path as URI
   
-
   const resizeAndNormalizeImage = async (imageUri:any) => {
     try {
+     
+
       // Resize the image to 224x224
       const resizedImage = await ImageResizer.createResizedImage(
         imageUri,
@@ -31,32 +32,32 @@ const CarDetection = () => {
         224,
         'JPEG',
         100,
-        undefined, 
+        0, 
     undefined, 
-    undefined,
+    false,
     { mode: "stretch" } // Adjust resizing options as needed
       );
+
+      console.log("height,width",resizedImage.height, resizedImage.width,resizedImage.size);
   
-      // Read the resized image file as base64 string.
+      // Read the resized image file as base64 string.s
       const base64Image = await RNFS.readFile(resizedImage.uri, 'base64');
       //console.log(base64Image);
       const uIntArray = Base64Binary.decode(base64Image);
 
     // Decode JPEG to raw pixel data
-    const decodedImage = decode(uIntArray, { useTArray: true });
+    const decodedImage = decode(uIntArray, { useTArray: true ,colorTransform: true,formatAsRGBA: false});
 
     // Check if the decoded image has the expected format
     if (!decodedImage || !decodedImage.data) {
       throw new Error('Failed to decode image.');
     }
 
-    // Convert the flat array to a 3D array (height x width x channels)
+    // Convert the flat array to a 3D array (height x ewdidth x channels)
     const height = decodedImage.height;
     const width = decodedImage.width;
     const channels = 3; // RGB
 
-
-    //console.log("Pixel values of the first index:", ((decodedImage.data[0]/255.0)-0.485)/0.229);
 
     // Initialize the tensor array
     const tensor: number[][][][] = [[[[], [], []]]];
@@ -70,8 +71,6 @@ const CarDetection = () => {
         for (let x = 0; x < width; x++) {
           const pixelIndex = (y * width + x) * channels;
           const pixelValue = decodedImage.data[pixelIndex + c] / 255.0; // Normalize
-          // const mean = [0.485, 0.456, 0.406][c];
-          // const std = [0.229, 0.224, 0.225][c];
           const standardizedValue = (pixelValue - mean[c]) / std[c]; // Standardize
           //console.log("value------", standardizedValue,pixelValue,mean,std)
           row.push(standardizedValue);
@@ -145,10 +144,10 @@ const CarDetection = () => {
   
   const loadModel = async () => {
     const modelPath = Platform.OS === 'android' && __DEV__
-      ? `${RNFS.DocumentDirectoryPath}/carDetection.onnx`
+      ? `${RNFS.DocumentDirectoryPath}/11_last.onnx`
       : Platform.OS === 'android'
-        ? 'file:///android_asset/models/carDetection.onnx'
-        : `${RNFS.MainBundlePath}/models/carDetection.onnx`;
+        ? 'file:///android_asset/models/11_last.onnx'
+        : `${RNFS.MainBundlePath}/models/11_last.onnx`;
 
       // Load your model using the appropriate library/method for your use case
       //console.log('Loading model from:', 'file://' + modelPath);
@@ -159,7 +158,6 @@ const CarDetection = () => {
 
       let start = Date.now();
       const normalizedImage = await resizeAndNormalizeImage(imageSource);
-
       const inputTensor = new ort.Tensor("float32", normalizedImage, [1, 3, 224, 224]); // Adjust shape and type as needed
 
       type OnnxValueMapType = {
@@ -171,7 +169,7 @@ const CarDetection = () => {
       const result = await session.run(onnxValueMap,["465"]);
       if (result) {
         console.log("Inference Result:", result);
-        const keys = {0:'headlight', 1:'taillight', 2:'trunk', 3:'fender_panel', 4:'bonnet',5: 'alloy', 6:'quater_panel'}
+        const keys = {0: 'driver_side', 1: 'opposite_head_light', 2: 'driver_head_light', 3: 'opposite_tail_light', 4: 'driver_tail_light', 5: 'trunk', 6: 'bonnet', 7: 'opposite_side'}
         //@ts-ignore
 const cpuData = result["465"].cpuData;
         const maxValue = Math.max(...cpuData);
@@ -200,8 +198,8 @@ console.log("Total time taken : " + timeTaken + " milliseconds");
 
 // async function loadModel() {
 //     try {
-//       //const modelUri = '../model/carDetection.onnx';
-//       const dest = RNFS.TemporaryDirectoryPath+"/carDetection.onnx";
+//       //const modelUri = '../model/11_last.onnx';
+//       const dest = RNFS.TemporaryDirectoryPath+"/11_last.onnx";
 
 //       console.log('Loading model', dest);
 
@@ -326,8 +324,8 @@ console.log("Total time taken : " + timeTaken + " milliseconds");
     const init = async () => {
       let start = Date.now();
 
-      const modelUrl = getModelUrl('src/model/carDetection.onnx');
-      const localModelPath = `${RNFS.DocumentDirectoryPath}/carDetection.onnx`;
+      const modelUrl = getModelUrl('src/model/11_last.onnx');
+      const localModelPath = `${RNFS.DocumentDirectoryPath}/11_last.onnx`;
       await downloadModelFile(modelUrl, localModelPath);
       await loadModel();
       let timeTaken = Date.now() - start;

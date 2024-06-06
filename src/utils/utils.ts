@@ -66,6 +66,7 @@ const convertImageToBase64 = async (imagePath:any) => {
     }
     return text; // Return the original text if it doesn't exceed the maximum length
   };
+  
 
   function sortByDesiredOrder(tables: { name: string }[]) {
     const importOrder: string[] = 
