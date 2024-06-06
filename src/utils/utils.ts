@@ -126,11 +126,12 @@ interface ResponseData {
   url: string;
 }
 
-const uploadFile = (path: string, angleName: string, data: any):Promise<{url: string}> => {
+const uploadFile = async (path: string, angleName: string, data: any):Promise<{url: string}> => {
   const sanitizedAngleName = angleName.replace(/\s+/g, '');
-
+  const baseUrl = await AsyncStorage.getItem('baseUrl')
+  console.log("baseUrl",baseUrl)
   return new Promise((resolve, reject) => {
-    RNFetchBlob.fetch('POST', `${config.BASE_URL}/angleImages/upload`, {
+    RNFetchBlob.fetch('POST', `${baseUrl}/angleImages/upload`, {
       otherHeader: "foo",
       'Content-Type': 'multipart/form-data',
     }, [
@@ -141,6 +142,7 @@ const uploadFile = (path: string, angleName: string, data: any):Promise<{url: st
       const responseData: ResponseData = resp.json()
       resolve(responseData);
     }).catch((err) => {
+      console.log("error here",err);
       reject(err);
     });
   });

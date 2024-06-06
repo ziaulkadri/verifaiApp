@@ -27,6 +27,8 @@ import Toast from 'react-native-toast-message';
 import RotatePhoneScreen from '../components/RotatePhoneScreen';
 import NavigationConstants from '../constants/NavigationConstants';
 import {useIsFocused, useRoute} from '@react-navigation/native';
+import { downloadModelFile, getModelUrl, performInference } from '../utils/carDetectionInference';
+import RNFS from 'react-native-fs';
 
 const DamageRecordingScreen = ({navigation}) => {
   const isFocused = useIsFocused();
@@ -46,7 +48,15 @@ const DamageRecordingScreen = ({navigation}) => {
   );
   const [processingText, setProcessingText] = useState('Processing Image');
 
+  const modelDownload = async () => {
+    let start = Date.now();
 
+    const modelUrl = getModelUrl('src/model/11_last.onnx');
+    const localModelPath = `${RNFS.DocumentDirectoryPath}/11_last.onnx`;
+    await downloadModelFile(modelUrl, localModelPath);
+    let timeTaken = Date.now() - start;
+    console.log("Total time taken : " + timeTaken + " milliseconds");
+  };
   useEffect(() => {
     const handleOrientationChange = ({window}) => {
       setDimensions(window);
@@ -61,6 +71,8 @@ const DamageRecordingScreen = ({navigation}) => {
     if (!hasPermission) {
       requestPermission();
     }
+
+    modelDownload()
 
     return () => {
       orientationChangeListener?.remove();
@@ -98,16 +110,14 @@ const DamageRecordingScreen = ({navigation}) => {
         const image = await cameraRef.current.takeSnapshot({quality: 100});
         setPreviewImage('file://' + image.path);
         setPreview(true);
-        const base64 = await convertImageToBase64(image.path);
+        //const base64 = await convertImageToBase64(image.path);
         const [validationResponse, uploadResponse] = await Promise.all([
-          isValidImage(
-            currentStep.name,
-            base64,
-            data.vehicleInfo.assessment_id,
-          ),
+          performInference(currentStep.name,image.path),
           uploadFile(image.path, currentStep.name, vehicleInfoData),
         ]);
-        if (validationResponse[currentStep.name].is_car) {
+
+        console.log(validationResponse, uploadResponse);
+        if (validationResponse) {
           SetScannedImageData(prevImageData => ({
             ...prevImageData,
             [currentStep.name]: uploadResponse.url,
@@ -121,13 +131,13 @@ const DamageRecordingScreen = ({navigation}) => {
           moveToNextStep();
           Toast.show({
             type: 'success',
-            text1: 'Car Detected',
+            text1: 'Angle is correct',
           });
         } else {
           setPreview(false);
           Toast.show({
             type: 'error',
-            text1: 'Car is not present in the image.',
+            text1: 'Angle is not correct',
           });
         }
       } catch (error) {

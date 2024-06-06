@@ -19,7 +19,7 @@ const MainScreen: React.FC = ({
     return (
       <NavigationContainer>
         <Stack.Navigator
-          initialRouteName={NavigationConstants.processingScreen}
+          initialRouteName={NavigationConstants.searchVehicleScreen}
           screenOptions={{
             headerShown: false,
             gestureEnabled: false,
