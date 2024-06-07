@@ -48,15 +48,12 @@ const convertImageToBase64 = async (imagePath:any) => {
     const modelUrl = await AsyncStorage.getItem('modelUrl')
 
     try {
-        
-            // Make API call with base64 image data
-            const response = await axios.post(`${modelUrl}/inference`, data);
-
-            return(response.data);
-          
-        
+          const response = await axios.post(`${modelUrl}/inference`, data);
+          console.log("rsponseData",response.data);
+          return(response.data);
     } catch (error) {
         console.error("Error in damage detection", error);
+        throw error;
     }
   }
   const truncateText = (text: string) => {

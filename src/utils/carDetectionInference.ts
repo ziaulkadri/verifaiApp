@@ -121,12 +121,21 @@ let modelLoaded = false;
 
 const loadModel = async () => {
   try {
-    const modelPath = Platform.OS === 'android' && __DEV__
-      ? `${RNFS.DocumentDirectoryPath}/11_last.onnx`
-      : Platform.OS === 'android'
-        ? 'file:///android_asset/models/11_last.onnx'
-        : `${RNFS.MainBundlePath}/models/11_last.onnx`;
+    let modelPath;
 
+    if (__DEV__) {
+      if (Platform.OS === 'android') {
+        modelPath = `${RNFS.DocumentDirectoryPath}/11_last.onnx`;
+      } else if (Platform.OS === 'ios') {
+        modelPath = `${RNFS.DocumentDirectoryPath}/11_last.onnx`;
+      }
+    } else {
+      if (Platform.OS === 'android') {
+        modelPath = `${RNFS.DocumentDirectoryPath}/11_last.onnx`;
+      } else if (Platform.OS === 'ios') {
+        modelPath = `${RNFS.MainBundlePath}/models/11_last.onnx`;
+      }
+    }
     session = await ort.InferenceSession.create("file://" + modelPath);
     modelLoaded = true;
     console.log('Model loaded successfully.');
@@ -301,31 +310,46 @@ export const performInference = (angleName:any,imageUri: string): Promise<boolea
 
 
 export const getModelUrl = (relativePath:any) => {
+  console.log("RelativePath", relativePath);
   if (__DEV__) {
     const { scriptURL } = NativeModules.SourceCode;
     const devServerHost = scriptURL.split('://')[1].split('/')[0];
     const url = `http://${devServerHost}/assets/${relativePath}`;
-    console.log('Model URL:', url);
+    console.log('Model URL (DEV):', url);
+    return url;
+  } else {
+    let url;
+    if (Platform.OS === 'ios') {
+      url = `${RNFS.MainBundlePath}/${relativePath}`;
+    } else if (Platform.OS === 'android') {
+      url = `asset:///${relativePath}`;
+    }
+    console.log('Model URL (PROD):', url);
     return url;
   }
-  return '';
 };
-export const downloadModelFile = async (modelUrl: string, localPath: string) => {
-    if (Platform.OS === 'android' && __DEV__) {
-      try {
-        const downloadResult = await RNFS.downloadFile({
-          fromUrl: modelUrl,
-          toFile: localPath,
-        }).promise;
-  
-        if (downloadResult.statusCode === 200) {
-          console.log('Model file downloaded successfully');
-        } else {
-          console.error('Failed to download model file');
-        }
-      } catch (error) {
-        console.error('Error downloading model file:', error);
-        throw error;
+
+export const downloadModelFile = async (modelUrl:any, localPath:any) => {
+  try {
+    console.log("1", modelUrl, localPath);
+
+    if (__DEV__) {
+      const downloadResult = await RNFS.downloadFile({
+        fromUrl: modelUrl,
+        toFile: localPath,
+      }).promise;
+      if (downloadResult.statusCode === 200) {
+        console.log('Model file downloaded successfully');
+      } else {
+        console.error('Failed to download model file');
       }
+    } else {
+      console.log("In production, copying file from assets");
+      await RNFS.copyFileAssets(modelUrl.replace('asset:///', ''), localPath);
+      console.log('Model file copied successfully');
     }
-  };
+  } catch (error) {
+    console.error('Error handling model file:', error);
+    throw error;
+  }
+};

@@ -49,14 +49,26 @@ const DamageRecordingScreen = ({navigation}) => {
   const [processingText, setProcessingText] = useState('Processing Image');
 
   const modelDownload = async () => {
-    let start = Date.now();
+let modelUrl
+let localModelPath
+    try {
+      let start = Date.now();
 
-    const modelUrl = getModelUrl('src/model/11_last.onnx');
-    const localModelPath = `${RNFS.DocumentDirectoryPath}/11_last.onnx`;
+      modelUrl = getModelUrl('model/11_last.onnx');
+     localModelPath = `${RNFS.DocumentDirectoryPath}/11_last.onnx`;
+     //@ts-ignore
     await downloadModelFile(modelUrl, localModelPath);
     let timeTaken = Date.now() - start;
     console.log("Total time taken : " + timeTaken + " milliseconds");
-  };
+      
+    } catch (error) {
+      const err= `${error}+error`
+      Toast.show({
+        type: 'error',
+        text1:err
+      });
+    }
+    };
   useEffect(() => {
     const handleOrientationChange = ({window}) => {
       setDimensions(window);
@@ -82,7 +94,7 @@ const DamageRecordingScreen = ({navigation}) => {
   useEffect(() => {
     const interval = setInterval(() => {
       setProcessingText((prev) =>
-        prev.endsWith('.....') ? 'Processing Image' : `${prev}.`
+        prev.endsWith('.....') ? 'Processing Images' : `${prev}.`
       );
     }, 500);
 
@@ -160,7 +172,7 @@ const DamageRecordingScreen = ({navigation}) => {
     return <ActivityIndicator />;
   }
 
-  if (capturedImages.length === steps.length) {
+  if (capturedImages.length === 1) {
     const payload = {
       licence_plate: data.vehicleInfo.plateNumber,
       assessment_id: data.vehicleInfo.assessment_id,
