@@ -52,7 +52,7 @@ const convertImageToBase64 = async (imagePath:any) => {
           console.log("rsponseData",response.data);
           return(response.data);
     } catch (error) {
-        console.error("Error in damage detection", error);
+        console.log("Error in damage detection", error);
         throw error;
     }
   }

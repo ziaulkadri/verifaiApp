@@ -94,12 +94,31 @@ let localModelPath
   useEffect(() => {
     const interval = setInterval(() => {
       setProcessingText((prev) =>
-        prev.endsWith('.....') ? 'Processing Images' : `${prev}.`
+        prev.endsWith('.....') ? 'Processing Image' : `${prev}.`
       );
     }, 500);
 
     return () => clearInterval(interval);
   }, []);
+  const checkAndNavigateToProcessingScreen = () => {
+    if (capturedImages.length === steps.length) {
+      const payload = {
+        licence_plate: data.vehicleInfo.plateNumber,
+        assessment_id: data.vehicleInfo.assessment_id,
+        scannedImageUrls: scannedImageData,
+        scannedImageUrlsLocal: scannedImageDataLocal,
+      };
+      console.log("payload---------------------",payload)
+      navigation.navigate(NavigationConstants.processingScreen, {
+        data: payload,
+        steps: steps,
+      });
+    }
+  };
+
+  useEffect(() => {
+    checkAndNavigateToProcessingScreen()
+  }, [capturedImages, data.vehicleInfo.plateNumber, data.vehicleInfo.assessment_id, navigation, scannedImageData, scannedImageDataLocal]);
 
 
   const vehicleInfoData = {
@@ -143,13 +162,15 @@ let localModelPath
           moveToNextStep();
           Toast.show({
             type: 'success',
-            text1: 'Angle is correct',
+            text1: 'Vehicle angle is correct',
           });
+          //checkAndNavigateToProcessingScreen();
+
         } else {
           setPreview(false);
           Toast.show({
             type: 'error',
-            text1: 'Angle is not correct',
+            text1: 'Vehicle angle is not correct',
           });
         }
       } catch (error) {
@@ -172,18 +193,9 @@ let localModelPath
     return <ActivityIndicator />;
   }
 
-  if (capturedImages.length === 1) {
-    const payload = {
-      licence_plate: data.vehicleInfo.plateNumber,
-      assessment_id: data.vehicleInfo.assessment_id,
-      scannedImageUrls: scannedImageData,
-      scannedImageUrlsLocal: scannedImageDataLocal,
-    };
-    navigation.navigate(NavigationConstants.processingScreen, {
-      data: payload,
-      steps: steps,
-    });
-  }
+
+
+
 
   const wp = widthPercent =>
     PixelRatio.roundToNearestPixel(

@@ -174,7 +174,7 @@ export const performInference = (angleName:any,imageUri: string): Promise<boolea
           let timeTaken = Date.now() - start;
 
           console.log("Total time taken for preprocessing : " + timeTaken + " milliseconds");
-
+          let start1 = Date.now();
           const inputTensor = new ort.Tensor("float32", normalizedImage, [1, 3, 224, 224]);
           const result = await session!.run({ "input.1": inputTensor }, ["465"]);
 
@@ -193,6 +193,9 @@ export const performInference = (angleName:any,imageUri: string): Promise<boolea
 
               if (maxValue > 0.95 && maxKey === angleName) {
                 resolve(true);
+                let timeTaken = Date.now() - start1;
+                console.log("Total time taken for preprocessing : " + timeTaken + " milliseconds");
+
               } else {
                 resolve(false);
               }

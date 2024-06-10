@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet,Image } from 'react-native';
+import { View, Text, StyleSheet,Image, TouchableOpacity } from 'react-native';
 import {
   widthPercentageToDP as wp,
   heightPercentageToDP as hp,
@@ -18,6 +18,8 @@ const ProcesssingScreen = ({navigation}) => {
     const data = route.params
     const isFocused = useIsFocused();
     const [processingText, setProcessingText] = useState('Processing');
+   const [error, setError] = useState(false)
+   const [errorMessage, setErrorMesssage] = useState()
 
 
    
@@ -91,18 +93,31 @@ const payload={
                 navigation.navigate(NavigationConstants.damageResponseViewScreen, { payload:payload,scannedImageLocal:data.data.scannedImageUrlsLocal,response:response })
            })
             .catch((error) => {
-              console.error("Error in detecting damages", error);
+              console.log("Error in detecting damages", error);
+              setError(true)
+              setErrorMesssage(error);
             });
         }
       }, [data.data?.licence_plate]);
+      const handleRetry = () => {
+        navigation.navigate(NavigationConstants.searchVehicleScreen);
+      };
 
   return (
     <View style={styles.container}>
       <View style={styles.upperContainer}>
         {/* <CarDetection/> */}
-       <ActivityIndicator size={100} color="#1631C2" />
+        {error ?(
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{`Failed to do the inference:${errorMessage}`}</Text>
+            <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        ) :<><ActivityIndicator size={100} color="#1631C2" />
       <Text style={styles.processingText}>{processingText}</Text>
-      <Text style={styles.assessmenText}>{`Assessment ID: ${data.data.assessment_id}`}</Text>
+      <Text style={styles.assessmenText}>{`Assessment ID: ${data.data.assessment_id}`}</Text></>}
+       
       </View>
     </View>
   );
@@ -138,6 +153,27 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#1631C2',
     marginTop:wp('10%')
+  },
+  errorContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: 'red',
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: '#1631C2',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 5,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
 

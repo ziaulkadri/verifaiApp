@@ -48,7 +48,7 @@ const DamageResponseViewScreen = ({ navigation }) => {
 
   // console.log("response",data.response[currentImageKey]?.ploted_damage)
 
-  //const imageData = data.response[currentImageKey]?.ploted_damage.replace(/^b'/, '')
+  //const imageData = data.response[curresntImageKey]?.ploted_damage.replace(/^b'/, '')
 
   const imageData = data.scannedImageLocal[currentImageKey]
 
@@ -88,7 +88,7 @@ const DamageResponseViewScreen = ({ navigation }) => {
           </TouchableOpacity>
           <DrawPolygonOnImage
             imageSource={imageData}
-            cropCordinate={cropCordinate}
+            cropCordinate={cropCordinate || []}
             panelPolygon={panelPolygon}
             damagePolygon={damagePolygon}
             showDamagePolygon={damageSwitch}
