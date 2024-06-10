@@ -9,10 +9,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const getVehicleAPI = async (plateNumber:any) => {
   const baseUrl = await AsyncStorage.getItem('baseUrl')
   console.log("baseUrl",baseUrl)
-
+console.log(plateNumber)
+let plate = "TS09SE9994" 
   try {
     //console.log(config.BASE_URL,plateNumber);
-    const response = await axios.get(`${baseUrl}/vehicle/find?plateNumber=${plateNumber}`);
+    const response = await axios.get(`${baseUrl}/vehicle/find?plateNumber=${plate}`);
     return response.data;
   } catch (error) {
     console.log("Failed to fetch vehicle information",error);

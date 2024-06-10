@@ -18,19 +18,31 @@ interface DrawPolygonOnImageProps {
 
 const DrawPolygonOnImage: React.FC<DrawPolygonOnImageProps> = ({ imageSource , cropCordinate, panelPolygon,damagePolygon,showDamagePolygon,showPanelPolygon }) => {
     const [croppedImageUri, setCroppedImageUri] = useState("");
+    const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
-    const ymin = cropCordinate[1], xmin = cropCordinate[0], ymax = cropCordinate[3], xmax = cropCordinate[2];
+    console.log(imageSource , cropCordinate, panelPolygon,damagePolygon,showDamagePolygon,showPanelPolygon)
+    //if (!cropCordinate || cropCordinate.length !== 4) return; // Check if cropCordinate is empty or not properly defined
 
-    const width = xmax - xmin
-    const height = ymax - ymin 
+
+    // const width = xmax - xmin
+    // const height = ymax - ymin 
 
     useEffect(() => {
+      //const ymin = cropCordinate[1], xmin = cropCordinate[0], ymax = cropCordinate[3], xmax = cropCordinate[2];
+      if (!cropCordinate || cropCordinate.length !== 4) {
+        setCroppedImageUri(imageSource);
+        setDimensions({ width: 100, height: 100 }); // Set default dimensions if cropCordinate is not defined
+        return;
+    }
       const ymin = cropCordinate[1], xmin = cropCordinate[0], ymax = cropCordinate[3], xmax = cropCordinate[2];
   
+      const width = xmax - xmin;
+        const height = ymax - ymin;
+        setDimensions({ width, height });
       const cropData = {
         offset: { x: xmin, y: ymin },
-        size: { width: xmax - xmin, height: ymax - ymin },
-        displaySize: { width: xmax - xmin, height: ymax - ymin },
+        size: { width: width, height: height },
+        displaySize: { width: width, height: height },
         //resizeMode: 'contain',
       };
   
@@ -43,6 +55,7 @@ const DrawPolygonOnImage: React.FC<DrawPolygonOnImageProps> = ({ imageSource , c
           console.error('Error cropping image:', error);
         });
     }, [imageSource, cropCordinate]);
+    console.log(dimensions.width, dimensions.height);
 
     const renderPolygons = (polygons: { polygon: any[]; }[],fillColor:any,lineColor:any) => {
       return polygons.map((polygon: { polygon: any[]; }, index: React.Key | null | undefined) => {
@@ -62,12 +75,12 @@ const DrawPolygonOnImage: React.FC<DrawPolygonOnImageProps> = ({ imageSource , c
     <>
 
     {croppedImageUri && 
-    <View style={[styles.imageContainer,{aspectRatio: width / height}]}>
+    <View style={[styles.imageContainer,{aspectRatio: dimensions.width / dimensions.height}]}>
       <Image source={{ uri: croppedImageUri }} style={styles.image} resizeMode="contain" />
       <Svg
             height="100%"
             width="100%"
-            viewBox={`0 0 ${width} ${height}`}
+            viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}
             style={StyleSheet.absoluteFill}
           >
             {showPanelPolygon &&renderPolygons(panelPolygon,"none","white")}

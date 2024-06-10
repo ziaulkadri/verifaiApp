@@ -27,6 +27,8 @@ import Toast from 'react-native-toast-message';
 import RotatePhoneScreen from '../components/RotatePhoneScreen';
 import NavigationConstants from '../constants/NavigationConstants';
 import {useIsFocused, useRoute} from '@react-navigation/native';
+import { downloadModelFile, getModelUrl, performInference } from '../utils/carDetectionInference';
+import RNFS from 'react-native-fs';
 
 const DamageRecordingScreen = ({navigation}) => {
   const isFocused = useIsFocused();
@@ -46,7 +48,27 @@ const DamageRecordingScreen = ({navigation}) => {
   );
   const [processingText, setProcessingText] = useState('Processing Image');
 
+  const modelDownload = async () => {
+let modelUrl
+let localModelPath
+    try {
+      let start = Date.now();
 
+      modelUrl = getModelUrl('model/11_last.onnx');
+     localModelPath = `${RNFS.DocumentDirectoryPath}/11_last.onnx`;
+     //@ts-ignore
+    await downloadModelFile(modelUrl, localModelPath);
+    let timeTaken = Date.now() - start;
+    console.log("Total time taken : " + timeTaken + " milliseconds");
+      
+    } catch (error) {
+      const err= `${error}+error`
+      Toast.show({
+        type: 'error',
+        text1:err
+      });
+    }
+    };
   useEffect(() => {
     const handleOrientationChange = ({window}) => {
       setDimensions(window);
@@ -62,6 +84,8 @@ const DamageRecordingScreen = ({navigation}) => {
       requestPermission();
     }
 
+    modelDownload()
+
     return () => {
       orientationChangeListener?.remove();
     };
@@ -76,6 +100,25 @@ const DamageRecordingScreen = ({navigation}) => {
 
     return () => clearInterval(interval);
   }, []);
+  const checkAndNavigateToProcessingScreen = () => {
+    if (capturedImages.length === steps.length) {
+      const payload = {
+        licence_plate: data.vehicleInfo.plateNumber,
+        assessment_id: data.vehicleInfo.assessment_id,
+        scannedImageUrls: scannedImageData,
+        scannedImageUrlsLocal: scannedImageDataLocal,
+      };
+      console.log("payload---------------------",payload)
+      navigation.navigate(NavigationConstants.processingScreen, {
+        data: payload,
+        steps: steps,
+      });
+    }
+  };
+
+  useEffect(() => {
+    checkAndNavigateToProcessingScreen()
+  }, [capturedImages, data.vehicleInfo.plateNumber, data.vehicleInfo.assessment_id, navigation, scannedImageData, scannedImageDataLocal]);
 
 
   const vehicleInfoData = {
@@ -98,16 +141,14 @@ const DamageRecordingScreen = ({navigation}) => {
         const image = await cameraRef.current.takeSnapshot({quality: 100});
         setPreviewImage('file://' + image.path);
         setPreview(true);
-        const base64 = await convertImageToBase64(image.path);
+        //const base64 = await convertImageToBase64(image.path);
         const [validationResponse, uploadResponse] = await Promise.all([
-          isValidImage(
-            currentStep.name,
-            base64,
-            data.vehicleInfo.assessment_id,
-          ),
+          performInference(currentStep.name,image.path),
           uploadFile(image.path, currentStep.name, vehicleInfoData),
         ]);
-        if (validationResponse[currentStep.name].is_car) {
+
+        console.log(validationResponse, uploadResponse);
+        if (validationResponse) {
           SetScannedImageData(prevImageData => ({
             ...prevImageData,
             [currentStep.name]: uploadResponse.url,
@@ -121,13 +162,15 @@ const DamageRecordingScreen = ({navigation}) => {
           moveToNextStep();
           Toast.show({
             type: 'success',
-            text1: 'Car Detected',
+            text1: 'Vehicle angle is correct',
           });
+          //checkAndNavigateToProcessingScreen();
+
         } else {
           setPreview(false);
           Toast.show({
             type: 'error',
-            text1: 'Car is not present in the image.',
+            text1: 'Vehicle angle is not correct',
           });
         }
       } catch (error) {
@@ -150,18 +193,9 @@ const DamageRecordingScreen = ({navigation}) => {
     return <ActivityIndicator />;
   }
 
-  if (capturedImages.length === steps.length) {
-    const payload = {
-      licence_plate: data.vehicleInfo.plateNumber,
-      assessment_id: data.vehicleInfo.assessment_id,
-      scannedImageUrls: scannedImageData,
-      scannedImageUrlsLocal: scannedImageDataLocal,
-    };
-    navigation.navigate(NavigationConstants.processingScreen, {
-      data: payload,
-      steps: steps,
-    });
-  }
+
+
+
 
   const wp = widthPercent =>
     PixelRatio.roundToNearestPixel(
