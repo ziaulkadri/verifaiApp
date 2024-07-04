@@ -52,12 +52,28 @@ const DamageResponseViewScreen = ({ navigation }) => {
 
   const imageData = data.scannedImageLocal[currentImageKey]
 
-  //console.log("substring",data.response[currentImageKey]?.ploted_damage.substring(0, 40).replace(/^b'\/9j\//, ''))
+  console.log("imageData",imageData)
 
-  const result = getDamageMidPoints(currentImageKey, data.response);
-  const cropCordinate = data.response[currentImageKey].car_crop
-  const panelPolygon = data.response[currentImageKey].panel_polygon
-  const damagePolygon = data.response[currentImageKey].damage_polygon
+  //console.log("substring",data.response[currentImageKey]?.ploted_damage.substring(0, 40).replace(/^b'\/9j\//, ''))
+  const vehicleAngle = data.response.vehicle_angles.find(
+    (    angle: { vehicleAngleData: { angle_name: string; }; }) => angle.vehicleAngleData.angle_name === currentImageKey
+  );
+
+
+
+  const result = getDamageMidPoints(vehicleAngle);
+
+
+  const cropCordinate = vehicleAngle ? vehicleAngle.assessmentOutline.carCrop : [];
+  const panelPolygon = vehicleAngle ? vehicleAngle.assessmentPanels : [];
+  const damagePolygon = vehicleAngle ? vehicleAngle.assessmentDamages : [];
+
+
+  console.log("vehicleAngle",vehicleAngle);
+
+  // const cropCordinate = data.response[currentImageKey].car_crop
+  // const panelPolygon = data.response[currentImageKey].panel_polygon
+  // const damagePolygon = data.response[currentImageKey].damage_polygon
   console.log("cordinates11",result);
 
   const handleDamageToggle = (isOn) => {

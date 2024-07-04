@@ -10,6 +10,8 @@ import NavigationConstants from '../constants/NavigationConstants';
 import { ActivityIndicator } from 'react-native-paper';
 import Orientation, { OrientationType } from 'react-native-orientation-locker';
 import CarDetection from '../components/CarDetection';
+import { useDispatch } from 'react-redux';
+import { ACTION_POST_INFERENCE_REQUEST } from '../store/constants';
 
 const ProcesssingScreen = ({navigation}) => {
 
@@ -19,7 +21,9 @@ const ProcesssingScreen = ({navigation}) => {
     const isFocused = useIsFocused();
     const [processingText, setProcessingText] = useState('Processing');
    const [error, setError] = useState(false)
-   const [errorMessage, setErrorMesssage] = useState()
+   const [errorMessage, setErrorMessage] = useState('')
+   const dispatch = useDispatch();
+   const [assessmentId, setAssessmentId] = useState(null);
 
 
    
@@ -46,59 +50,63 @@ useEffect(() => {
   return () => clearInterval(interval);
 }, []);
 
-// const payload ={
-//   "Back Driver Side Tyre": "https://verifaistor.blob.core.windows.net/verifai/data/b3638d91-b352-41c1-956d-72845341e30e/311402c5-bb16-4eac-af9d-ac5cbad127c6/1716540610303/processed/images/BackDriverSideTyre.jpg", 
-//   "Back Opposite Side Tyre": "https://verifaistor.blob.core.windows.net/verifai/data/b3638d91-b352-41c1-956d-72845341e30e/311402c5-bb16-4eac-af9d-ac5cbad127c6/1716540622288/processed/images/BackOppositeSideTyre.jpg",
-//    "Bonnet": "https://verifaistor.blob.core.windows.net/verifai/data/b3638d91-b352-41c1-956d-72845341e30e/311402c5-bb16-4eac-af9d-ac5cbad127c6/1716540591704/processed/images/Bonnet.jpg", 
-//    "Driver Fender Panel First Door": "https://verifaistor.blob.core.windows.net/verifai/data/b3638d91-b352-41c1-956d-72845341e30e/311402c5-bb16-4eac-af9d-ac5cbad127c6/1716540601542/processed/images/DriverFenderPanelFirstDoor.jpg", 
-//    "Driver Head Light": "https://verifaistor.blob.core.windows.net/verifai/data/b3638d91-b352-41c1-956d-72845341e30e/311402c5-bb16-4eac-af9d-ac5cbad127c6/1716540598435/processed/images/DriverHeadLight.jpg", 
-//    "Driver Second Door Quarter Panel": "https://verifaistor.blob.core.windows.net/verifai/data/b3638d91-b352-41c1-956d-72845341e30e/311402c5-bb16-4eac-af9d-ac5cbad127c6/1716540607406/processed/images/DriverSecondDoorQuarterPanel.jpg",
-//     "Driver Tail Light": "https://verifaistor.blob.core.windows.net/verifai/data/b3638d91-b352-41c1-956d-72845341e30e/311402c5-bb16-4eac-af9d-ac5cbad127c6/1716540613488/processed/images/DriverTailLight.jpg",
-//      "Front Driver Side Tyre": "https://verifaistor.blob.core.windows.net/verifai/data/b3638d91-b352-41c1-956d-72845341e30e/311402c5-bb16-4eac-af9d-ac5cbad127c6/1716540604350/processed/images/FrontDriverSideTyre.jpg",
-//       "Front Opposite Side Tyre": "https://verifaistor.blob.core.windows.net/verifai/data/b3638d91-b352-41c1-956d-72845341e30e/311402c5-bb16-4eac-af9d-ac5cbad127c6/1716540631136/processed/images/FrontOppositeSideTyre.jpg", 
-//       "Opposite Fender Panel First Door": "https://verifaistor.blob.core.windows.net/verifai/data/b3638d91-b352-41c1-956d-72845341e30e/311402c5-bb16-4eac-af9d-ac5cbad127c6/1716540628087/processed/images/OppositeFenderPanelFirstDoor.jpg",
-//        "Opposite Head Light": "https://verifaistor.blob.core.windows.net/verifai/data/b3638d91-b352-41c1-956d-72845341e30e/311402c5-bb16-4eac-af9d-ac5cbad127c6/1716540634310/processed/images/OppositeHeadLight.jpg", 
-//        "Opposite Second Door Quarter Panel": "https://verifaistor.blob.core.windows.net/verifai/data/b3638d91-b352-41c1-956d-72845341e30e/311402c5-bb16-4eac-af9d-ac5cbad127c6/1716540625126/processed/images/OppositeSecondDoorQuarterPanel.jpg",
-//         "Opposite Tail Light": "https://verifaistor.blob.core.windows.net/verifai/data/b3638d91-b352-41c1-956d-72845341e30e/311402c5-bb16-4eac-af9d-ac5cbad127c6/1716540619479/processed/images/OppositeTailLight.jpg", 
-//         "Trunk": "https://verifaistor.blob.core.windows.net/verifai/data/b3638d91-b352-41c1-956d-72845341e30e/311402c5-bb16-4eac-af9d-ac5cbad127c6/1716540616520/processed/images/Trunk.jpg",
-//          "assessment_id": "JERBElcN4R", 
-//          "licence_plate": "TS09SE9994"
-        
+// const ApiPayloadData ={
+//     vehicle_id: data.data.vehicleInfo.id,
+//     client_id: data.data.vehicleInfo.client_id,
+//     scanned_images: data.data.scannedImageData,
+//     reference_number:data.data.referenceNumber,
+//     startTime: data.data.startTime,
+//     latitude: data.data.latitude,
+//     longitude: data.data.longitude,
+//     status:"Initialize",
+//     createdBy_id: '3b2d3e5d-4c70-4d4e-9ea7-3d3d29f609b9', 
 // }
+useEffect(() => {
+  const handleInferenceRequest = (response:any) => {
+
+    console.log("dispatch api response", response);
+    
+
+    navigation.navigate(NavigationConstants.damageResponseViewScreen, {scannedImageLocal:data.data.scannedImageUrlsLocal,response:response })
 
 
-const payload={
-  licence_plate: data.data.licence_plate,
-  assessment_id: data.data.assessment_id,
-  ...data.data.scannedImageUrls
+
+
+
+
+    // if (response && response.assessmentId) {
+    //   setAssessmentId(response.assessmentId);
+    // } else {
+    //   setError(true);
+    //   setErrorMessage('Failed to get assessment ID');
+    //   Toast.show({
+    //     type: 'error',
+    //     text1: 'Error fetching assessment ID',
+    //    // text2: 'Failed to get assessment ID',
+    //   });
+    // }
+  };
+
+  const payloadData ={
+    vehicle_id: data.data.vehicle_id,
+    client_id: data.data.client_id,
+    scanned_images: data.data.scanned_images,
+    reference_number:data.data.reference_number,
+    startTime: data.data.startTime,
+    latitude: data.data.latitude,
+    longitude: data.data.longitude,
+    status:"Initialize",
+    createdBy_id: '3b2d3e5d-4c70-4d4e-9ea7-3d3d29f609b9', 
 }
 
+  const payload = {
+    data: payloadData,
+    callback: handleInferenceRequest,
+  };
 
-// console.log("plate",data.data.licence_plate)
-// console.log("assessment",data.data.assessment_id)
-// console.log("scannedurl",data.data.scannedImageUrls)
-//console.log("scannedurllocal",data.data.scannedImageUrlsLocal)
+  dispatch({ type: ACTION_POST_INFERENCE_REQUEST, payload });
 
-
-
-//console.log("payload",payload)
-
-    useEffect(() => {
-        if (data.data.licence_plate) {
-          //console.log("API call", data.data.assessment_id, data.data.licence_plate);
-          
-          damageDetection(payload)
-            .then((response) => {
-              //console.log("response",response);
-                navigation.navigate(NavigationConstants.damageResponseViewScreen, { payload:payload,scannedImageLocal:data.data.scannedImageUrlsLocal,response:response })
-           })
-            .catch((error) => {
-              console.log("Error in detecting damages", error);
-              setError(true)
-              setErrorMesssage(error);
-            });
-        }
-      }, [data.data?.licence_plate]);
+}, [dispatch, data]);
       const handleRetry = () => {
         navigation.navigate(NavigationConstants.searchVehicleScreen);
       };
@@ -116,7 +124,7 @@ const payload={
           </View>
         ) :<><ActivityIndicator size={100} color="#1631C2" />
       <Text style={styles.processingText}>{processingText}</Text>
-      <Text style={styles.assessmenText}>{`Assessment ID: ${data.data.assessment_id}`}</Text></>}
+      <Text style={styles.assessmenText}>{`Assessment ID: ${"data.data.assessment_id"}`}</Text></>}
        
       </View>
     </View>

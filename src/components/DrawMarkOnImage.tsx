@@ -14,7 +14,7 @@ interface MarkedImageProps {
 const MarkedImage: React.FC<MarkedImageProps> = ({ coordinates }) => {
   const originalWidth = 893;
   const originalHeight = 429;
-
+console.log("cordinates: " + coordinates)
   return (
     <View style={styles.imageContainer}>
       <Image source={require("../../assets/images/BluePrint.jpg")} style={styles.image} />

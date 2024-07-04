@@ -41,7 +41,6 @@ const SearchVehicleScreen = ({ navigation }) => {
   const [plateNumber, setPlateNumber] = useState('');
   const [isValidPlate, setIsValidPlate] = useState(false);
   const [url1, setUrl1] = useState('');
-  const [url2, setUrl2] = useState('');
   const [urlsSaved, setUrlsSaved] = useState(false);
   const dispatch = useDispatch();
   const isFocused = useIsFocused();
@@ -75,7 +74,6 @@ const SearchVehicleScreen = ({ navigation }) => {
   const handleSaveUrls = async () => {
     try {
       await AsyncStorage.setItem('baseUrl', url1);
-      await AsyncStorage.setItem('modelUrl', url2);
       setUrlsSaved(true);
       
     } catch (error) {
@@ -136,13 +134,6 @@ const SearchVehicleScreen = ({ navigation }) => {
                 value={url1}
                 onChangeText={setUrl1}
                 placeholder="URL 1"
-              />
-              <Text style={styles.text}>Enter MODEL URL</Text>
-              <TextInput
-                style={styles.textInput}
-                value={url2}
-                onChangeText={setUrl2}
-                placeholder="URL 2"
               />
               <TouchableOpacity
                 style={styles.buttonContainer}
