@@ -159,16 +159,19 @@ interface Coordinate {
   y: number;
 }
 
-const getDamageMidPoints = (angleName: string, data: any): { coordinates: Coordinate[] } => {
-  const angleData = data[angleName];
-  if (!angleData || !angleData.damage_polygon || angleData.damage_polygon.length === 0) {
+const getDamageMidPoints = (angleData: any): { coordinates: Coordinate[] } => {
+  //const angleData = angleData;
+
+  console.log("getDamageMidPoints",angleData);
+  if (!angleData || !angleData.assessmentDamages || angleData.assessmentDamages.length === 0) {
+    //console.log("going from here ",angleData.assessmentDamages)
     return { coordinates: [] };
   }
 
-  const coordinates = angleData.damage_polygon
-    .filter((damage: { denormalize_pt?: [number, number]; }) => damage.denormalize_pt)
-    .map((damage: { denormalize_pt: [number, number]; }) => {
-      const [x, y] = damage.denormalize_pt;
+  const coordinates = angleData.assessmentDamages
+    .filter((damage: { denormalizePoint?: [number, number]; }) => damage.denormalizePoint)
+    .map((damage: { denormalizePoint: [number, number]; }) => {
+      const [x, y] = damage.denormalizePoint;
       return { x, y };
     });
 

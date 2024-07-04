@@ -29,6 +29,8 @@ import NavigationConstants from '../constants/NavigationConstants';
 import {useIsFocused, useRoute} from '@react-navigation/native';
 import { downloadModelFile, getModelUrl, performInference } from '../utils/carDetectionInference';
 import RNFS from 'react-native-fs';
+import { ACTION_POST_INFERENCE_REQUEST } from '../store/constants';
+import { useDispatch } from 'react-redux';
 
 const DamageRecordingScreen = ({navigation}) => {
   const isFocused = useIsFocused();
@@ -40,13 +42,14 @@ const DamageRecordingScreen = ({navigation}) => {
   const [previewImage, setPreviewImage] = useState('');
   const route = useRoute();
   const data = route.params;
-  const [scannedImageData, SetScannedImageData] = useState({});
+  const [scannedImageData, SetScannedImageData] = useState([]);
   const [scannedImageDataLocal, SetScannedImageDataLocal] = useState({});
   const [dimensions, setDimensions] = useState(Dimensions.get('window'));
   const [isPortrait, setIsPortrait] = useState(
     dimensions.height > dimensions.width,
   );
   const [processingText, setProcessingText] = useState('Processing Image');
+  const dispatch = useDispatch();
 
   const modelDownload = async () => {
 let modelUrl
@@ -100,17 +103,65 @@ let localModelPath
 
     return () => clearInterval(interval);
   }, []);
+
+  //console.log("vehicle infor",data.vehicleInfo.id)
+
+
+  // const handleInferenceRequest = (data: any) => {
+  //   console.log(data)
+  // }
   const checkAndNavigateToProcessingScreen = () => {
     if (capturedImages.length === steps.length) {
-      const payload = {
-        licence_plate: data.vehicleInfo.plateNumber,
-        assessment_id: data.vehicleInfo.assessment_id,
-        scannedImageUrls: scannedImageData,
+      // const payloadForNextScreen = {
+      //   vehicle_id: data.vehicleInfo.id,
+      //   client_id: data.vehicleInfo.client_id,
+      //   assessment_id: data.vehicleInfo.assessment_id,
+      //   scanned_images: scannedImageData,
+      //   scannedImageUrlsLocal: scannedImageDataLocal,
+      // };
+      const timestamp = Date.now();
+      const startTime = new Date().toISOString()
+  const randomNumber = Math.floor(1000 + Math.random() * 9000);
+
+  const latitude=37.7749
+  const longitude=-122.4194
+  const referenceNumber = `REF-${timestamp}-${randomNumber}`
+
+  // const payloadData ={
+  //   vehicle_id: data.vehicleInfo.id,
+  //   client_id: data.vehicleInfo.client_id,
+  //   scanned_images: scannedImageData,
+  //   reference_number:referenceNumber,
+  //   startTime: startTime,
+  //   latitude: latitude,
+  //   longitude: longitude,
+  //   status:"Initialize",
+  //   createdBy_id: '3b2d3e5d-4c70-4d4e-9ea7-3d3d29f609b9',
+  // }
+  //     const payload = {
+  //       data: payloadData,
+  //       callback: handleInferenceRequest,
+  //     };
+     
+      const payloadForApiCallAndNextScreen ={
+        vehicle_id:data.vehicleInfo.id,
+        client_id: data.vehicleInfo.client_id,
+        scanned_images: scannedImageData,
         scannedImageUrlsLocal: scannedImageDataLocal,
-      };
-      console.log("payload---------------------",payload)
+        reference_number:referenceNumber,
+        startTime: startTime,
+        latitude: latitude,
+        longitude: longitude,
+        status:"Initialize",
+        createdBy_id: '3b2d3e5d-4c70-4d4e-9ea7-3d3d29f609b9',
+
+
+      }
+
+
+      //dispatch({ type: ACTION_POST_INFERENCE_REQUEST, payload });
       navigation.navigate(NavigationConstants.processingScreen, {
-        data: payload,
+        data: payloadForApiCallAndNextScreen,
         steps: steps,
       });
     }
@@ -142,17 +193,16 @@ let localModelPath
         setPreviewImage('file://' + image.path);
         setPreview(true);
         //const base64 = await convertImageToBase64(image.path);
-        const [validationResponse, uploadResponse] = await Promise.all([
+        const [validationResponse, base64Image] = await Promise.all([
           performInference(currentStep.name,image.path),
-          uploadFile(image.path, currentStep.name, vehicleInfoData),
+          convertImageToBase64(image.path),
         ]);
-
-        console.log(validationResponse, uploadResponse);
         if (validationResponse) {
-          SetScannedImageData(prevImageData => ({
-            ...prevImageData,
-            [currentStep.name]: uploadResponse.url,
-          }));
+          //@ts-ignore
+          SetScannedImageData(prevData => [
+            ...prevData,
+            { [currentStep.name]: base64Image}
+          ]);
           SetScannedImageDataLocal(prevImageData => ({
             ...prevImageData,
             [currentStep.name]: 'file://' + image.path,

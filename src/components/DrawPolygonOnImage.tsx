@@ -20,7 +20,7 @@ const DrawPolygonOnImage: React.FC<DrawPolygonOnImageProps> = ({ imageSource , c
     const [croppedImageUri, setCroppedImageUri] = useState("");
     const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
-    console.log(imageSource , cropCordinate, panelPolygon,damagePolygon,showDamagePolygon,showPanelPolygon)
+    //console.log(imageSource , cropCordinate, panelPolygon,damagePolygon,showDamagePolygon,showPanelPolygon)
     //if (!cropCordinate || cropCordinate.length !== 4) return; // Check if cropCordinate is empty or not properly defined
 
 
