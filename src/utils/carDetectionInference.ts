@@ -5,7 +5,8 @@ import { decode } from 'jpeg-js';
 import { NativeModules, Platform } from 'react-native';
 import { Base64Binary } from './processingUtils';
 
-const softmax = (values: Float32Array) => {
+export const softmax = (values: any) => {
+  'worklet';
   const expValues = new Float32Array(values.length);
   let sumExpValues = 0;
   for (let i = 0; i < values.length; i++) {
@@ -116,10 +117,10 @@ const softmax = (values: Float32Array) => {
       throw error;
     }
   };
-let session: ort.InferenceSession | null = null;
-let modelLoaded = false;
+export let session: ort.InferenceSession | null = null;
+export let modelLoaded = false;
 
-const loadModel = async () => {
+export const loadModel =  async () => {
   try {
     let modelPath;
 
@@ -138,7 +139,7 @@ const loadModel = async () => {
     }
     session = await ort.InferenceSession.create("file://" + modelPath);
     modelLoaded = true;
-    console.log('Model loaded successfully.');
+    console.log('Model loaded successfully.',session,modelLoaded);
   } catch (error) {
     console.error('Error loading model:', error);
     throw error;
@@ -356,3 +357,16 @@ export const downloadModelFile = async (modelUrl:any, localPath:any) => {
     throw error;
   }
 };
+
+
+
+
+export const inferenceOnFrame = (angle:string,resizedFrame:any) => {
+  'worklet';
+console.log('Inference on frame',resizedFrame[0].length)
+
+
+
+
+  console.log("Inference on frame");
+}

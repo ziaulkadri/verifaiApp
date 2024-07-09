@@ -1,4 +1,4 @@
-import React, {useState, useRef, useEffect} from 'react';
+import React, {useState, useRef, useEffect, useCallback} from 'react';
 import {
   View,
   Text,
@@ -12,25 +12,30 @@ import {
 import * as Progress from 'react-native-progress';
 import {
   Camera,
+  runAtTargetFps,
   useCameraDevice,
   useCameraFormat,
   useCameraPermission,
+  useFrameProcessor,
 } from 'react-native-vision-camera';
 import {
   convertImageToBase64,
-  isValidImage,
   sortByDesiredOrder,
   truncateText,
-  uploadFile,
 } from '../utils/utils';
 import Toast from 'react-native-toast-message';
-import RotatePhoneScreen from '../components/RotatePhoneScreen';
 import NavigationConstants from '../constants/NavigationConstants';
 import {useIsFocused, useRoute} from '@react-navigation/native';
 import { downloadModelFile, getModelUrl, performInference } from '../utils/carDetectionInference';
 import RNFS from 'react-native-fs';
 import { ACTION_POST_INFERENCE_REQUEST } from '../store/constants';
 import { useDispatch } from 'react-redux';
+import { useTensorflowModel } from 'react-native-fast-tflite';
+import { useResizePlugin } from 'vision-camera-resize-plugin';
+import Orientation from 'react-native-orientation-locker';
+import TranslucentBox from '../components/TranslucentBox';
+import { Worklets } from 'react-native-worklets-core';
+// import { frameToBase64 } from 'vision-camera-base64';
 
 const DamageRecordingScreen = ({navigation}) => {
   const isFocused = useIsFocused();
@@ -50,7 +55,16 @@ const DamageRecordingScreen = ({navigation}) => {
   );
   const [processingText, setProcessingText] = useState('Processing Image');
   const dispatch = useDispatch();
+  const [accuracy, setAccuracy] = useState(10)
+  const [angleName, setAngleName] = useState(' ')
+  //const objectDetection = useTensorflowModel(require('../../assets/model/model.tflite'))
+  //const model = objectDetection.state === "loaded" ? objectDetection.model : undefined
+  const objectDetection = useTensorflowModel(require('../../assets/model/model.tflite'))
+  const model = objectDetection.state === "loaded" ? objectDetection.model : undefined
+  //console.log("model",model)
+  const { resize } = useResizePlugin()
 
+  //console.log("modelNrew",model)
   const modelDownload = async () => {
 let modelUrl
 let localModelPath
@@ -73,43 +87,129 @@ let localModelPath
     }
     };
   useEffect(() => {
-    const handleOrientationChange = ({window}) => {
-      setDimensions(window);
-      setIsPortrait(window.height > window.width);
-    };
-
-    const orientationChangeListener = Dimensions.addEventListener(
-      'change',
-      handleOrientationChange,
-    );
-
     if (!hasPermission) {
       requestPermission();
     }
-
-    modelDownload()
-
-    return () => {
-      orientationChangeListener?.remove();
-    };
   }, [hasPermission]);
+    useEffect(() => {
+      // Lock the screen to landscape mode
+      Orientation.lockToPortrait();
+  
+      // Unlock orientation when the component is unmounted
+      return () => {
+        Orientation.unlockAllOrientations();
+      };
+    }, []);
+  // useEffect(() => {
+  //   Orientation.unlockAllOrientations();
+  //   return () => {
+  //     Orientation.lockToLandscapeLeft();
+  //   };
+  // }, []);  
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setProcessingText((prev) =>
-        prev.endsWith('.....') ? 'Processing Image' : `${prev}.`
-      );
-    }, 500);
 
-    return () => clearInterval(interval);
+  function justTest(maxValue: number, ang: any) {
+    const acc = Math.floor(maxValue * 100); // This will give you 34 for 34.23521512353%
+    // if(acc>60){
+    //   moveToNextStep();
+    // }
+    
+    setAccuracy(acc);
+    setAngleName(ang);
+  }
+
+const myFunctionJS = Worklets.createRunOnJS(justTest)
+
+   const softmax = (values:any) => {
+    'worklet';
+    const expValues = new Float32Array(values.length);
+    let sumExpValues = 0;
+    for (let i = 0; i < values.length; i++) {
+      expValues[i] = Math.exp(values[i]);
+      sumExpValues += expValues[i];
+    }
+    const softmaxValues = new Float32Array(values.length);
+    for (let i = 0; i < values.length; i++) {
+      softmaxValues[i] = expValues[i] / sumExpValues;
+    }
+    return softmaxValues;
+  };
+  function findMaxValueAndIndex(values:any) {
+    'worklet';
+    let maxValue = values[0];
+    let maxIndex = 0;
+  
+    for (let i = 1; i < values.length; i++) {
+      if (values[i] > maxValue) {
+        maxValue = values[i];
+        maxIndex = i;
+      }
+    }
+  
+    return { maxValue, maxIndex };
+  }
+  const postProcessing = useCallback((values:any) => {
+    'worklet';
+//const normalizedValues = normalize(values);
+const softmaxData = softmax(values);
+//console.log("softmaxData",softmaxData)
+const { maxValue, maxIndex } = findMaxValueAndIndex(softmaxData);
+const keys = { 0: 'driver_side', 1: 'Left Headlight', 2: 'Right Head Light', 3: 'Left Tail Light', 4: 'Right Tail Light', 5: 'Trunk', 6: 'Front', 7: 'opposite_side' };
+//@ts-ignore
+const maxKey = keys[maxIndex];
+myFunctionJS(maxValue,maxKey)
+console.log("Maximum Value:", maxValue > 0.95 ? true : false, maxValue);
+console.log("Index of Maximum Value:", maxIndex);
+console.log("Key of Maximum Value:", maxKey);
   }, []);
 
-  //console.log("vehicle infor",data.vehicleInfo.id)
+  const mean = [0.485, 0.456, 0.406]; // Mean values for B, G, R channels
+const std = [0.229, 0.224, 0.225]; // Standard deviation values for B, G, R channels
+  const frameProcessor = useFrameProcessor((frame) => {
+    'worklet'
 
+    runAtTargetFps(1, () => {
+      'worklet'
+      //console.log('frameProcessor',frame)
+      //console.log("frame",frame.toArrayBuffer().slice(0,10))
+      //console.log("frameOrientation",frame.orientation,frame.width,frame.height)
+      // const width = 224;
+      // const height = 224;
+      // const channels = 3;
+      const data = resize(frame, {
+        scale: {
+          width: 224,
+          height: 224,
+        },
+        pixelFormat: 'bgr',
+        dataType: 'float32',
+        //rotation: '90deg',
+        //mirror: true,
+      })
 
-  // const handleInferenceRequest = (data: any) => {
-  //   console.log(data)
-  // }
+      
+      // for (let y = 0; y < height; y++) {
+      //   for (let x = 0; x < width; x++) {
+      //     for (let c = 0; c < channels; c++) {
+      //       const pixelIndex = (y * width + x) * channels + c;
+      //       const pixelValue = data[pixelIndex] / 255.0; // Normalize
+      //       const standardizedValue = (pixelValue - mean[c]) / std[c]; // Standardize
+      //       data[pixelIndex] = standardizedValue;
+      //     }
+      //   }
+      // }
+      if(model !=undefined){
+          const output = model.runSync([data])  
+        const numDetections = output[0] 
+       console.log(`Detected ${numDetections} objects!`)
+        postProcessing(numDetections)  
+      }
+      else{
+        console.log("model not loaded")
+      }
+    })    
+  }, [model])
+
   const checkAndNavigateToProcessingScreen = () => {
     if (capturedImages.length === steps.length) {
       // const payloadForNextScreen = {
@@ -170,6 +270,7 @@ let localModelPath
   useEffect(() => {
     checkAndNavigateToProcessingScreen()
   }, [capturedImages, data.vehicleInfo.plateNumber, data.vehicleInfo.assessment_id, navigation, scannedImageData, scannedImageDataLocal]);
+  
 
 
   const vehicleInfoData = {
@@ -256,10 +357,24 @@ let localModelPath
       (dimensions.height * parseFloat(heightPercent)) / 100,
     );
 
+
+
+    const getAccuracyColor = () => {
+      if (accuracy < 40) {
+        return 'red';
+      } else if (accuracy < 60) {
+        return 'orange';
+      } else if (accuracy < 99) {
+        return 'green';
+      } else {
+        return 'red'; // Replace 'defaultColor' with the color you want for accuracy >= 99
+      }
+    };
+
+
+
   return (
     <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
-      {!preview ? (
-        <>
           <Camera
             ref={cameraRef}
             style={{flex: 1, width: '100%', height: '100%'}}
@@ -268,14 +383,14 @@ let localModelPath
             device={device}
             photoQualityBalance="speed"
             format={format}
+           frameProcessor={frameProcessor}
+           //orientation='portrait'
           />
-          {!isPortrait && (
-            <>
-            <View style={{position: 'absolute', alignItems: 'center',left: hp('2%'),transform: [{rotate: '-90deg'}]}}>
+            <View style={{position: 'absolute', alignItems: 'center',right: hp('1%'),transform: [{rotate: '90deg'}]}}>
               <Progress.Bar
                 progress={progress}
-                style={{position: 'absolute', top: hp('4%')}}
-                width={wp('40%')}
+                style={{position: 'absolute', top: hp('2%')}}
+                width={wp('70%')}
                 height={hp('6%')}
                 borderRadius={hp('5%')}
                 color="#63C85A"
@@ -286,20 +401,20 @@ let localModelPath
                   justifyContent: 'center',
                   alignItems: 'center',
                   position: 'absolute',
-                  top: hp('12%'),
+                  top: hp('10%'),
                 }}>
                 <Text
                   style={
                     prevStep
                       ? {
-                          fontSize: wp('1.8%'),
+                          fontSize: wp('3%'),
                           fontWeight: 'normal',
                           borderBottomLeftRadius: hp('4.5%'),
                           borderTopLeftRadius: hp('4.5%'),
                           paddingVertical: hp('2.5%'),
                           backgroundColor: '#CED5DB',
                           margin: 1,
-                          width: wp('11%'),
+                          width: wp('22%'),
                           textAlign: 'center',
                           color: '#000',
                         }
@@ -310,7 +425,7 @@ let localModelPath
                           padding: wp('2%'),
                           borderRadius: wp('10%'),
                           margin: 0.2,
-                          width: wp('11%'),
+                          width: wp('22%'),
                           textAlign: 'center',
                           color: '#000',
                         }
@@ -320,13 +435,13 @@ let localModelPath
                 <Text
                   style={[
                     {
-                      fontSize: wp('1.8%'),
+                      fontSize: wp('3%'),
                       fontWeight: 'bold',
                       paddingVertical: hp('2.5%'),
                       paddingHorizontal: wp('2%'),
                       backgroundColor: '#5E9FE4',
                       margin: 1,
-                      width: wp('18%'),
+                      width: wp('28%'),
                       textAlign: 'center',
                       color: '#000',
                     },
@@ -337,14 +452,14 @@ let localModelPath
                   style={
                     nextStep
                       ? {
-                          fontSize: wp('1.8%'),
+                          fontSize: wp('3%'),
                           fontWeight: 'normal',
                           borderBottomRightRadius: hp('4.5%'),
                           borderTopRightRadius: hp('4.5%'),
                           paddingVertical: hp('2.5%'),
                           backgroundColor: '#CED5DB',
                           margin: 1,
-                          width: wp('11%'),
+                          width: wp('22%'),
                           textAlign: 'center',
                           color: '#000',
                         }
@@ -355,7 +470,7 @@ let localModelPath
                           padding: wp('2%'),
                           borderRadius: wp('10%'),
                           margin: 0.2,
-                          width: wp('11%'),
+                          width: wp('22%'),
                           textAlign: 'center',
                           color: '#000',
                         }
@@ -369,19 +484,63 @@ let localModelPath
                   ...StyleSheet.absoluteFillObject,
                   justifyContent: 'center',
                   alignItems: 'center',
-                  top: hp('22%'),
+                  //top: hp('10%'),
+                  transform: [{rotate: '90deg'}],
+                  right: hp('19%'),
                 }}>
                 <Image
                   source={{uri: currentStep.overlay_image_path}}
                   style={{
-                    width: wp('100%'),
-                    height: hp('55%'),
+                    width: wp('80%'),
+                    height: hp('50%'),
                     resizeMode: 'contain',
                     tintColor: 'white',
                   }}
                 />
               </View>
-              <TouchableOpacity
+              {/* <TranslucentBox Accuracy={predictedAccuracy} angleName={predictedAngleName}/> */}
+              <View
+    style={{
+      position: 'absolute',
+      top: hp('8%'),
+      left: hp('0.1%'),
+      backgroundColor: 'rgba(0, 0, 0, 0.3)',
+      borderRadius: hp('1%'),
+      padding: hp('1%'),
+      borderWidth: 1,
+      borderColor: 'rgba(255, 255, 255, 0.4)',
+      transform: [{ rotate: '90deg' }],
+      height: hp('21%'),
+      width: wp('62%'),
+    }}
+  >
+      <Progress.Bar
+                progress={accuracy/100}
+                style={{position: 'absolute', top: hp('2%')}}
+                width={wp('60%')}
+                height={hp('3%')}
+                borderRadius={hp('5%')}
+                color={getAccuracyColor()}
+              />
+    <View style={{ alignItems: 'flex-start', justifyContent: 'center',marginTop:hp('5%') }}>
+    {/* <Progress.Bar
+                progress={accuracy/100}
+                style={{position: 'absolute', top: hp('2%')}}
+                width={wp('60%')}
+                height={hp('3%')}
+                borderRadius={hp('5%')}
+                color="red"
+              /> */}
+      <Text style={{ fontSize: wp('4%'), color: 'red', marginBottom: hp('1%') }}>
+        Accuracy: {accuracy}%
+      </Text>
+      <Text style={{ fontSize: wp('4%'), color: 'red', marginBottom: hp('1%') }}>
+        Angle Name: {angleName}
+      </Text>
+      <Text style={{ fontSize: wp('4%'), color: 'red' }}>Accepted Accurary: 95%</Text>
+    </View>
+  </View>
+              {/* <TouchableOpacity
                 style={{
                   width: wp('10%'),
                   height: wp('10%'),
@@ -392,45 +551,7 @@ let localModelPath
                 }}
                 disabled={capturedImages.length === steps.length || isPortrait}
                 onPress={handleImageCapture}
-              />
-            </>
-          )}
-          {isPortrait && <RotatePhoneScreen />}
-        </>
-      ) : (
-        <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
-          <Image
-            source={{uri: previewImage}}
-            style={{
-              width: wp('100%'),
-              height: hp('100%'),
-              resizeMode: 'contain',
-            }}
-          />
-          <View
-        style={{
-          position: 'absolute',
-          bottom: hp('10%'),
-          //right: '35%',
-          //transform: [{ translateX: -wp('25%') }, { translateY: -hp('2.5%') }],
-          //backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          padding: wp('2%'),
-          borderRadius: wp('1%'),
-        }}
-      >
-        <Text
-          style={{
-            color: '#5E9FE4',
-            fontSize: wp('3%'),
-            fontWeight: 'bold',
-            textAlign: 'center',
-          }}
-        >
-          {processingText}
-        </Text>
-      </View>
-        </View>
-      )}
+              /> */}
       <Toast
         position="top"
         bottomOffset={20}

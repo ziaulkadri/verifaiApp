@@ -81,41 +81,41 @@ const SearchVehicleScreen = ({ navigation }) => {
     }
   };
 
-  useEffect(() => {
-    const handleOrientationChange = (newOrientation) => {
-      setOrientation(newOrientation);
-    };
+  // useEffect(() => {
+  //   const handleOrientationChange = (newOrientation) => {
+  //     setOrientation(newOrientation);
+  //   };
 
-    if (isFocused) {
-      Orientation.lockToPortrait();
-      Orientation.addOrientationListener(handleOrientationChange);
-    } else {
-      Orientation.unlockAllOrientations();
-      Orientation.removeOrientationListener(handleOrientationChange);
-    }
+  //   if (isFocused) {
+  //     Orientation.lockToPortrait();
+  //     Orientation.addOrientationListener(handleOrientationChange);
+  //   } else {
+  //     Orientation.unlockAllOrientations();
+  //     Orientation.removeOrientationListener(handleOrientationChange);
+  //   }
 
-    // const getUrlsFromStorage = async () => {
-    //   try {
-    //     const storedUrl1 = await AsyncStorage.getItem('url1');
-    //     const storedUrl2 = await AsyncStorage.getItem('url2');
-    //     console.log(storedUrl1, storedUrl2);
-    //     if (storedUrl1 && storedUrl2) {
-    //       setUrl1(storedUrl1);
-    //       setUrl2(storedUrl2);
-    //       setUrlsSaved(true);
-    //     }
-    //   } catch (error) {
-    //     console.error('Error fetching URLs from AsyncStorage', error);
-    //   }
-    // };
+  //   // const getUrlsFromStorage = async () => {
+  //   //   try {
+  //   //     const storedUrl1 = await AsyncStorage.getItem('url1');
+  //   //     const storedUrl2 = await AsyncStorage.getItem('url2');
+  //   //     console.log(storedUrl1, storedUrl2);
+  //   //     if (storedUrl1 && storedUrl2) {
+  //   //       setUrl1(storedUrl1);
+  //   //       setUrl2(storedUrl2);
+  //   //       setUrlsSaved(true);
+  //   //     }
+  //   //   } catch (error) {
+  //   //     console.error('Error fetching URLs from AsyncStorage', error);
+  //   //   }
+  //   // };
 
-    // getUrlsFromStorage();
+  //   // getUrlsFromStorage();
 
-    return () => {
-      Orientation.unlockAllOrientations();
-      Orientation.removeOrientationListener(handleOrientationChange);
-    };
-  }, [isFocused]);
+  //   return () => {
+  //     Orientation.unlockAllOrientations();
+  //     Orientation.removeOrientationListener(handleOrientationChange);
+  //   };
+  // }, [isFocused]);
 
   const handlePlateChange = (text) => {
     setPlateNumber(text);
