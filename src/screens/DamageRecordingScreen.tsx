@@ -59,7 +59,7 @@ const DamageRecordingScreen = ({navigation}) => {
   const [angleName, setAngleName] = useState(' ')
   //const objectDetection = useTensorflowModel(require('../../assets/model/model.tflite'))
   //const model = objectDetection.state === "loaded" ? objectDetection.model : undefined
-  const objectDetection = useTensorflowModel(require('../../assets/model/model.tflite'))
+  const objectDetection = useTensorflowModel(require('../../assets/model/mobile_models_experiments_04062024_exp_6_weights.tflite'))
   const model = objectDetection.state === "loaded" ? objectDetection.model : undefined
   //console.log("model",model)
   const { resize } = useResizePlugin()
@@ -154,7 +154,7 @@ const myFunctionJS = Worklets.createRunOnJS(justTest)
 const softmaxData = softmax(values);
 //console.log("softmaxData",softmaxData)
 const { maxValue, maxIndex } = findMaxValueAndIndex(softmaxData);
-const keys = { 0: 'driver_side', 1: 'Left Headlight', 2: 'Right Head Light', 3: 'Left Tail Light', 4: 'Right Tail Light', 5: 'Trunk', 6: 'Front', 7: 'opposite_side' };
+const keys = {0: 'driver_side', 1: 'opposite_head_light', 2: 'driver_head_light', 3: 'opposite_tail_light', 4: 'driver_tail_light', 5: 'trunk', 6: 'bonnet', 7: 'opposite_side'}
 //@ts-ignore
 const maxKey = keys[maxIndex];
 myFunctionJS(maxValue,maxKey)
@@ -163,19 +163,21 @@ console.log("Index of Maximum Value:", maxIndex);
 console.log("Key of Maximum Value:", maxKey);
   }, []);
 
-  const mean = [0.485, 0.456, 0.406]; // Mean values for B, G, R channels
-const std = [0.229, 0.224, 0.225]; // Standard deviation values for B, G, R channels
+//   const mean = [0.485, 0.456, 0.406]; // Mean values for B, G, R channels
+// const std = [0.229, 0.224, 0.225]; // Standard deviation values for B, G, R channels
+
+
+
+
   const frameProcessor = useFrameProcessor((frame) => {
     'worklet'
 
     runAtTargetFps(1, () => {
       'worklet'
-      //console.log('frameProcessor',frame)
-      //console.log("frame",frame.toArrayBuffer().slice(0,10))
-      //console.log("frameOrientation",frame.orientation,frame.width,frame.height)
-      // const width = 224;
-      // const height = 224;
-      // const channels = 3;
+      const width = 224;
+      const height = 224;
+      const channels = 3;
+      // 1. Resize 4k Frame to 224x224x3 using vision-camera-resize-plugin
       const data = resize(frame, {
         scale: {
           width: 224,
@@ -184,22 +186,21 @@ const std = [0.229, 0.224, 0.225]; // Standard deviation values for B, G, R chan
         pixelFormat: 'bgr',
         dataType: 'float32',
         //rotation: '90deg',
-        //mirror: true,
+        // mirror: false,
       })
 
-      
-      // for (let y = 0; y < height; y++) {
-      //   for (let x = 0; x < width; x++) {
-      //     for (let c = 0; c < channels; c++) {
-      //       const pixelIndex = (y * width + x) * channels + c;
-      //       const pixelValue = data[pixelIndex] / 255.0; // Normalize
-      //       const standardizedValue = (pixelValue - mean[c]) / std[c]; // Standardize
-      //       data[pixelIndex] = standardizedValue;
-      //     }
-      //   }
-      // }
+      const reshapedData = new Float32Array(1*width * height * channels);
+
+      for (let h = 0; h < height; h++) {
+        for (let w = 0; w < width; w++) {
+          for (let c = 0; c < channels; c++) {
+            reshapedData[c * width * height + h * width + w] = data[h * width * channels + w * channels + c];
+          }
+        }
+      }
       if(model !=undefined){
-          const output = model.runSync([data])  
+        //@ts-ignore
+          const output = model.runSync([reshapedData])  
         const numDetections = output[0] 
        console.log(`Detected ${numDetections} objects!`)
         postProcessing(numDetections)  
@@ -563,3 +564,7 @@ const std = [0.229, 0.224, 0.225]; // Standard deviation values for B, G, R chan
 };
 
 export default DamageRecordingScreen;
+  function newArray(length: number) {
+    throw new Error('Function not implemented.');
+  }
+

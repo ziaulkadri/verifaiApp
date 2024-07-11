@@ -6,7 +6,6 @@ import { NativeModules, Platform } from 'react-native';
 import { Base64Binary } from './processingUtils';
 
 export const softmax = (values: any) => {
-  'worklet';
   const expValues = new Float32Array(values.length);
   let sumExpValues = 0;
   for (let i = 0; i < values.length; i++) {
