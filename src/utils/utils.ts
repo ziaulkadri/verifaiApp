@@ -5,19 +5,54 @@ import config from '../config/config';
 import ImagePicker from 'react-native-image-crop-picker';
 import ImageEditor from '@react-native-community/image-editor';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import ImageResizer from 'react-native-image-resizer';
+import { Image } from 'react-native';
 
 const convertImageToBase64 = async (imagePath:any) => {
     try {
       const base64Image = await RNFS.readFile(imagePath, 'base64');
-      //console.log('Image converted to base64:', base64Image);
+      console.log('Image converted to base64:', base64Image);
       return base64Image;
     } catch (error) {
       console.error('Error converting image to base64:', error);
       return null;
     }
   };
+  const rotateAndConvertImageToBase64 = async (imagePath: string,width:any,height:any) => {
+    try {
+     // console.log('Image rotated to base64:', imagePath);
+      // Get the original dimensions of the image
+      //@ts-ignore
+      // const { width, height } = await new Promise((resolve, reject) => {
+      //   Image.getSize(
+      //     imagePath,
+      //     (width, height) => resolve({ width, height }),
+      //     (error) => reject(error)
+      //   );
+      // });
+  
 
-
+      console.log('Image rotated to base64:', width,height);
+      // Rotate the image by 90 degrees
+      const rotatedImage = await ImageResizer.createResizedImage(
+        imagePath,
+        1080,  // original width
+        1080, // original height
+        'JPEG', // format
+        100,    // quality
+        -90,     // rotation angle
+            // output path (null means the default temporary directory)
+      );
+  
+      // Read the rotated image as base64
+      const base64Image = await RNFS.readFile(rotatedImage.uri, 'base64');
+      console.log("base64",base64Image);
+      return base64Image;
+    } catch (error) {
+      console.error('Error rotating and converting image to base64:', error);
+      return null;
+    }
+  };
   const isValidImage =async (angleName:any,base64Image:any,assessment_id:any)=>{
 
     //console.log("base64", angleName,base64Image);
@@ -77,8 +112,8 @@ const convertImageToBase64 = async (imagePath:any) => {
       "Right Tail Light",
       "Trunk",
       "Left Tail Light",
-      "Left Rear Tyre",
       "Left Rear Fender and Door",
+      "Left Rear Tyre",
       "Left Front Fender and Door",
       "Left Front Tyre",
       "Left Headlight"
@@ -209,5 +244,6 @@ const cropImage = async (imageUrl: string) => {
     uploadFile,
     generateUUID,
     getDamageMidPoints,
-    cropImage
+    cropImage,
+    rotateAndConvertImageToBase64
   }
