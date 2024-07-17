@@ -78,7 +78,6 @@ const DamageRecordingScreen = ({navigation}) => {
   );
   const model =
     objectDetection.state === 'loaded' ? objectDetection.model : undefined;
-  //console.log("model",model)
   const {resize} = useResizePlugin();
   const previewImage1 = useSharedValue<SkImage | null>(null);
   const counterRef = useRef(0);
@@ -92,31 +91,31 @@ const DamageRecordingScreen = ({navigation}) => {
   const prevStep = currentStepIndex > 0 ? steps[currentStepIndex - 1] : null;
   const nextStep =
     currentStepIndex < steps.length - 1 ? steps[currentStepIndex + 1] : null;
-  const progress = capturedImages.length / steps.length;
+  const progress = scannedImageData.length / steps.length;
 
 
 
   //console.log("modelNrew",model)
-  const modelDownload = async () => {
-    let modelUrl;
-    let localModelPath;
-    try {
-      let start = Date.now();
+  // const modelDownload = async () => {
+  //   let modelUrl;
+  //   let localModelPath;
+  //   try {
+  //     let start = Date.now();
 
-      modelUrl = getModelUrl('model/11_last.onnx');
-      localModelPath = `${RNFS.DocumentDirectoryPath}/11_last.onnx`;
-      //@ts-ignore
-      await downloadModelFile(modelUrl, localModelPath);
-      let timeTaken = Date.now() - start;
-      console.log('Total time taken : ' + timeTaken + ' milliseconds');
-    } catch (error) {
-      const err = `${error}+error`;
-      Toast.show({
-        type: 'error',
-        text1: err,
-      });
-    }
-  };
+  //     modelUrl = getModelUrl('model/11_last.onnx');
+  //     localModelPath = `${RNFS.DocumentDirectoryPath}/11_last.onnx`;
+  //     //@ts-ignore
+  //     await downloadModelFile(modelUrl, localModelPath);
+  //     let timeTaken = Date.now() - start;
+  //     console.log('Total time taken : ' + timeTaken + ' milliseconds');
+  //   } catch (error) {
+  //     const err = `${error}+error`;
+  //     Toast.show({
+  //       type: 'error',
+  //       text1: err,
+  //     });
+  //   }
+  // };
   useEffect(() => {
     if (!hasPermission) {
       requestPermission();
@@ -132,38 +131,37 @@ const DamageRecordingScreen = ({navigation}) => {
     };
   }, []);
   useEffect(() => {
-    console.log("------------------------", currentStepIndex, currentStep.name, "------------------------");
-
     curentAngleName = currentStep.name
   extractCurrentFrame =false
   counterRef.current = 0;
-
   }, [currentStepIndex]);
 
 
 
   function setAccuracyAndAnglePrediction(maxValue: number, ang: any) {
-    const acc = Math.floor(maxValue * 100); // This will give you 34 for 34.23521512353%
+    const acc = Math.floor(maxValue * 100); 
     setAccuracy(acc);
     setAngleName(ang);
 
-     //console.log("------------------------",currentStepIndex,currentStep.name, "------------------------",[])
+    const alloyAngles = [
+        "Right Front Tyre",
+        "Right Rear Tyre",
+        "Left Rear Tyre",
+        "Left Front Tyre"
+    ];
+    const normalizeString = (str: string) => str.replace(/\s+/g, '').toLowerCase();
 
-   
-    if(curentAngleName === ang && acc > 95 && !extractCurrentFrame){
-      counterRef.current += 1;
-      console.log("----------Came Here--------------")
-      if (counterRef.current >= 5) {
-      console.log("------------------------",ang,currentStep.name)
-      handleImageCapture()
-      //setCurrentStepIndex(prevIndex => Math.min(prevIndex + 1, steps.length - 1));
-     // console.log("------------------------",currentStepIndex, "------------------------",[])
-    }}else {
-      counterRef.current = 0; // reset the counter if condition is not met
-  }
-    //else if()
+    const isAlloyConditionMet = ang === 'Alloy' && alloyAngles.includes(curentAngleName);
 
-  }
+    if ((normalizeString(curentAngleName)=== normalizeString(ang) || isAlloyConditionMet) && acc > 95 && !extractCurrentFrame) {
+        counterRef.current += 1;
+        if (counterRef.current >= 2) {
+            handleImageCapture();
+        }
+    } else {
+        counterRef.current = 0;
+    }
+}
 
   const myFunctionJS = Worklets.createRunOnJS(setAccuracyAndAnglePrediction);
 
@@ -261,7 +259,8 @@ const DamageRecordingScreen = ({navigation}) => {
   );
 
   const checkAndNavigateToProcessingScreen = () => {
-    if (capturedImages.length === steps.length) {
+    console.log('cehcking',scannedImageData.length,steps.length);
+    if (scannedImageData.length === steps.length) {
       // const payloadForNextScreen = {
       //   vehicle_id: data.vehicleInfo.id,
       //   client_id: data.vehicleInfo.client_id,
@@ -294,16 +293,16 @@ const DamageRecordingScreen = ({navigation}) => {
       //     };
 
       const payloadForApiCallAndNextScreen = {
-        vehicle_id: data.vehicleInfo.id,
-        client_id: data.vehicleInfo.client_id,
+        //vehicle_id: data.vehicleInfo.id,
+        //client_id: data.vehicleInfo.client_id,
         scanned_images: scannedImageData,
         scannedImageUrlsLocal: scannedImageDataLocal,
-        reference_number: referenceNumber,
-        startTime: startTime,
-        latitude: latitude,
-        longitude: longitude,
-        status: 'Initialize',
-        createdBy_id: '3b2d3e5d-4c70-4d4e-9ea7-3d3d29f609b9',
+        //reference_number: referenceNumber,
+        //startTime: startTime,
+        //latitude: latitude,
+        //longitude: longitude,
+        //status: 'Initialize',
+        //createdBy_id: '3b2d3e5d-4c70-4d4e-9ea7-3d3d29f609b9',
       };
 
       //dispatch({ type: ACTION_POST_INFERENCE_REQUEST, payload });
@@ -336,26 +335,28 @@ const DamageRecordingScreen = ({navigation}) => {
         const image = await cameraRef.current.takeSnapshot({quality: 100});
 
 
-        //console.log("image orientation",image.height,image.width)
+        console.log("image orientation",image.height,image.width)
 
 
-      // const base64Image = rotateAndConvertImageToBase64('file://' + image.path,image.width,image.height);
+      const base64Image = await rotateAndConvertImageToBase64('file://' + image.path,image.width,image.height);
+
+      console.log("base64came",base64Image?.slice(0, 10))
         setPreviewImage('file://' + image.path);
         //setPreview(true);
-        //const base64 = await convertImageToBase64(image.path);
-        const [base64Image] = await Promise.all([
-         // performInference(currentStep.name, image.path),
-          convertImageToBase64(image.path),
-        ]);
+        //const base64Image = await convertImageToBase64(image.path);
+        // const [base64Image] = await Promise.all([
+        //  // performInference(currentStep.name, image.path),
+        //   convertImageToBase64(image.path),
+        // ]);
         if (base64Image) {
           //@ts-ignore
           SetScannedImageData(prevData => [
             ...prevData,
-            {[currentStep.name]: base64Image},
+            {[curentAngleName]: base64Image},
           ]);
           SetScannedImageDataLocal(prevImageData => ({
             ...prevImageData,
-            [currentStep.name]: 'file://' + image.path,
+            [curentAngleName]: 'file://' + image.path,
           }));
          // setPreview(false);
           setCapturedImages([...capturedImages, previewImage]);

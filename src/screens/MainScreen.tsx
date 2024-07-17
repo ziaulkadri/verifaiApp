@@ -9,6 +9,7 @@ import SearchVehicleScren from './SearchVehicleScreen';
 import DamageRecordingScreen from './DamageRecordingScreen';
 import ProcesssingScreen from './ProcessingScreen';
 import DamageResponseViewScreen from './DamageResponseViewScreen';
+import ImageGridScreen from './ImageGridScreen';
 // import LoginScreen from './LoginScreen';
 
 const Stack = createStackNavigator();
@@ -44,7 +45,7 @@ const MainScreen: React.FC = ({
           />
             <Stack.Screen
             name={NavigationConstants.processingScreen}
-            component={ProcesssingScreen}
+            component={ImageGridScreen}
           />
             <Stack.Screen
             name={NavigationConstants.damageResponseViewScreen}

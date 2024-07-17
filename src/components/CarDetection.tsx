@@ -29,12 +29,9 @@ const CarDetection = () => {
     false,
     { mode: "stretch" } // Adjust resizing options as needed
       );
-
-      console.log("height,width",resizedImage.height, resizedImage.width,resizedImage.size);
   
       // Read the resized image file as base64 string.s
       const base64Image = await RNFS.readFile(resizedImage.uri, 'base64');
-      //console.log(base64Image);
       const uIntArray = Base64Binary.decode(base64Image);
 
     // Decode JPEG to raw pixel data
@@ -64,7 +61,6 @@ const CarDetection = () => {
           const pixelIndex = (y * width + x) * channels;
           const pixelValue = decodedImage.data[pixelIndex + c] / 255.0; // Normalize
           const standardizedValue = (pixelValue - mean[c]) / std[c]; // Standardize
-          //console.log("value------", standardizedValue,pixelValue,mean,std)
           row.push(standardizedValue);
           // loggedValues++;
           // if (loggedValues >= 2) {
@@ -78,7 +74,6 @@ const CarDetection = () => {
 
     // Log the shape of the tensor
     //const tensorShape = [1, channels, height, width];
-    //console.log(tensor)
     return tensor.flat().flat().flat();
     } catch (error) {
       console.error('Error processing image:', error);
