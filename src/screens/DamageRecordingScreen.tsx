@@ -18,7 +18,6 @@ import {
   useFrameProcessor,
 } from 'react-native-vision-camera';
 import {
-  convertImageToBase64,
   rotateAndConvertImageToBase64,
   sortByDesiredOrder,
   truncateText,
@@ -26,22 +25,12 @@ import {
 import Toast from 'react-native-toast-message';
 import NavigationConstants from '../constants/NavigationConstants';
 import {useIsFocused, useRoute} from '@react-navigation/native';
-import {
-  downloadModelFile,
-  getModelUrl,
-  performInference,
-} from '../utils/carDetectionInference';
-import RNFS from 'react-native-fs';
 import {ACTION_POST_INFERENCE_REQUEST} from '../store/constants';
 import {useDispatch} from 'react-redux';
 import {useTensorflowModel} from 'react-native-fast-tflite';
 import {Options, useResizePlugin} from 'vision-camera-resize-plugin';
 import Orientation from 'react-native-orientation-locker';
-import {Worklets, useRunOnJS} from 'react-native-worklets-core';
-import {Canvas, Image, SkData, SkImage, Skia} from '@shopify/react-native-skia';
-import {createSkiaImageFromData} from '../utils/SkiaUtils';
-import {useSharedValue} from 'react-native-reanimated';
-// import { frameToBase64 } from 'vision-camera-base64';
+import {Worklets} from 'react-native-worklets-core';
 type PixelFormat = Options<'uint8'>['pixelFormat'];
 
 const WIDTH = 224;
@@ -57,7 +46,6 @@ const DamageRecordingScreen = ({navigation}) => {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [capturedImages, setCapturedImages] = useState([]);
   const cameraRef = useRef(null);
-  const [preview, setPreview] = useState(false);
   const [previewImage, setPreviewImage] = useState('');
   const route = useRoute();
   const data = route.params;
@@ -67,19 +55,17 @@ const DamageRecordingScreen = ({navigation}) => {
   const [isPortrait, setIsPortrait] = useState(
     dimensions.height > dimensions.width,
   );
-  const [processingText, setProcessingText] = useState('Processing Image');
   const dispatch = useDispatch();
   const [accuracy, setAccuracy] = useState(10);
   const [angleName, setAngleName] = useState(' ');
   //const objectDetection = useTensorflowModel(require('../../assets/model/model.tflite'))
   //const model = objectDetection.state === "loaded" ? objectDetection.model : undefined
   const objectDetection = useTensorflowModel(
-    require('../../assets/model/11_last_modified_model_1_without_cast_fp32.tflite'),
+    require('../../assets/model/11_last_test_background_7_with_splited_modified_model_1_without_cast_fp32.tflite'),
   );
   const model =
     objectDetection.state === 'loaded' ? objectDetection.model : undefined;
   const {resize} = useResizePlugin();
-  const previewImage1 = useSharedValue<SkImage | null>(null);
   const counterRef = useRef(0);
 
 
@@ -94,28 +80,6 @@ const DamageRecordingScreen = ({navigation}) => {
   const progress = scannedImageData.length / steps.length;
 
 
-
-  //console.log("modelNrew",model)
-  // const modelDownload = async () => {
-  //   let modelUrl;
-  //   let localModelPath;
-  //   try {
-  //     let start = Date.now();
-
-  //     modelUrl = getModelUrl('model/11_last.onnx');
-  //     localModelPath = `${RNFS.DocumentDirectoryPath}/11_last.onnx`;
-  //     //@ts-ignore
-  //     await downloadModelFile(modelUrl, localModelPath);
-  //     let timeTaken = Date.now() - start;
-  //     console.log('Total time taken : ' + timeTaken + ' milliseconds');
-  //   } catch (error) {
-  //     const err = `${error}+error`;
-  //     Toast.show({
-  //       type: 'error',
-  //       text1: err,
-  //     });
-  //   }
-  // };
   useEffect(() => {
     if (!hasPermission) {
       requestPermission();
@@ -149,11 +113,25 @@ const DamageRecordingScreen = ({navigation}) => {
         "Left Rear Tyre",
         "Left Front Tyre"
     ];
-    const normalizeString = (str: string) => str.replace(/\s+/g, '').toLowerCase();
 
+    const fenderAndDoorAngles = {
+        front: ["Right Front Fender and Door", "Left Front Fender and Door"],
+        rear: ["Left Rear Fender and Door", "Right Rear Fender and Door"]
+    };
+
+    const normalizeString = (str: string) => str.replace(/\s+/g, '').toLowerCase();
     const isAlloyConditionMet = ang === 'Alloy' && alloyAngles.includes(curentAngleName);
 
-    if ((normalizeString(curentAngleName)=== normalizeString(ang) || isAlloyConditionMet) && acc > 95 && !extractCurrentFrame) {
+    let isFenderAndDoorConditionMet = false;
+    if (ang.includes("Fender and Door")) {
+        if (fenderAndDoorAngles.front.includes(curentAngleName) && ang === "Front Fender and Door") {
+            isFenderAndDoorConditionMet = true;
+        } else if (fenderAndDoorAngles.rear.includes(curentAngleName) && ang === "Rear Fender and Door") {
+            isFenderAndDoorConditionMet = true;
+        }
+    }
+
+    if ((normalizeString(curentAngleName) === normalizeString(ang) || isAlloyConditionMet || isFenderAndDoorConditionMet) && acc > 95 && !extractCurrentFrame) {
         counterRef.current += 1;
         if (counterRef.current >= 2) {
             handleImageCapture();
@@ -195,11 +173,11 @@ const DamageRecordingScreen = ({navigation}) => {
   }
   const postProcessing = useCallback((values: any) => {
     'worklet';
-    //const normalizedValues = normalize(values);
     const softmaxData = softmax(values);
     console.log("softmaxData",softmaxData)
     const {maxValue, maxIndex} = findMaxValueAndIndex(softmaxData);
-    const keys ={0: 'Left Tail Light', 1: 'Right Tail Light', 2: 'Trunk', 3: 'Front', 4: 'Left Head Light', 5: 'Right Side', 6: 'Right Head Light', 7: 'Left Side', 8: 'Alloy'}
+    // const keys ={0: 'Left Tail Light', 1: 'Right Tail Light', 2: 'Trunk', 3: 'Front', 4: 'Left Head Light', 5: 'Right Side', 6: 'Right Head Light', 7: 'Left Side', 8: 'Alloy'}
+    const keys ={0: 'Alloy', 1: 'Front', 2: 'Right Head Light', 3: 'Right Tail Light', 4: 'Front Fender and Door', 5: 'Left Head Light', 6: 'Left Tail Light', 7: 'Rear Fender and Door', 8: 'Trunk'}
     //@ts-ignore
     const maxKey = keys[maxIndex];
     
@@ -209,17 +187,6 @@ const DamageRecordingScreen = ({navigation}) => {
     console.log('Key of Maximum Value:', maxKey);
   }, []);
 
-  // let base64Image;
-  // const updatePreviewImageFromData = useRunOnJS(
-  //   (data: SkData, pixelFormat: PixelFormat) => {
-  //     const image = createSkiaImageFromData(data, WIDTH, HEIGHT, pixelFormat);
-  //     previewImage1.value?.dispose();
-  //     previewImage1.value = image;
-  //     base64Image = image?.encodeToBase64();
-  //     console.log("base64Image",base64Image);
-  //   },
-  //   []
-  // );
 
   const frameProcessor = useFrameProcessor(
     frame => {
@@ -239,10 +206,6 @@ const DamageRecordingScreen = ({navigation}) => {
           //mirror: true,
         });
 
-        // const data = Skia.Data.fromBytes(result);
-        // updatePreviewImageFromData(data, TARGET_FORMAT);
-        //data.dispose();
-        // const end = performance.now();
 
         if (model != undefined) {
           //@ts-ignore
@@ -259,7 +222,6 @@ const DamageRecordingScreen = ({navigation}) => {
   );
 
   const checkAndNavigateToProcessingScreen = () => {
-    console.log('cehcking',scannedImageData.length,steps.length);
     if (scannedImageData.length === steps.length) {
       // const payloadForNextScreen = {
       //   vehicle_id: data.vehicleInfo.id,
@@ -411,13 +373,10 @@ const DamageRecordingScreen = ({navigation}) => {
     } else if (accuracy < 100) {
       return 'green';
     } else {
-      return 'red'; // Replace 'defaultColor' with the color you want for accuracy >= 99
+      return 'red';
     }
   };
 
-
-  // console.log("currentStepName",currentStep.name)
-  // console.log('scannedImage',scannedImageData)
 
   return (
     <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
@@ -430,7 +389,6 @@ const DamageRecordingScreen = ({navigation}) => {
         photoQualityBalance="speed"
         format={format}
         frameProcessor={frameProcessor}
-        //outputOrientation='device'
       />
       <View
         style={{
@@ -550,20 +508,6 @@ const DamageRecordingScreen = ({navigation}) => {
           }}
         />
       </View>
-      {/* <View style={styles.canvasWrapper}>
-        <Canvas style={{ width: WIDTH, height: HEIGHT }}>
-        {previewImage1 != null && 
-          <Image
-            image={previewImage1}
-            x={0}
-            y={0}
-            width={WIDTH}
-            height={HEIGHT}
-            fit="cover"
-          />}
-        </Canvas>
-      </View> */}
-      {/* <TranslucentBox Accuracy={predictedAccuracy} angleName={predictedAngleName}/> */}
       <View
         style={{
           position: 'absolute',
@@ -592,14 +536,6 @@ const DamageRecordingScreen = ({navigation}) => {
             justifyContent: 'center',
             marginTop: hp('5%'),
           }}>
-          {/* <Progress.Bar
-                progress={accuracy/100}
-                style={{position: 'absolute', top: hp('2%')}}
-                width={wp('60%')}
-                height={hp('3%')}
-                borderRadius={hp('5%')}
-                color="red"
-              /> */}
           <Text
             style={{fontSize: wp('4%'), color: 'red', marginBottom: hp('1%')}}>
             Accuracy: {accuracy}%

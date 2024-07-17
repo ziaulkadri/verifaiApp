@@ -1,12 +1,9 @@
 import axios from 'axios';
 import RNFS from 'react-native-fs';
-import RNFetchBlob, { FetchBlobResponse } from 'rn-fetch-blob';
-import config from '../config/config';
-import ImagePicker from 'react-native-image-crop-picker';
+import RNFetchBlob from 'rn-fetch-blob';
 import ImageEditor from '@react-native-community/image-editor';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ImageResizer from 'react-native-image-resizer';
-import { Image } from 'react-native';
 
 const convertImageToBase64 = async (imagePath:any) => {
     try {
@@ -180,20 +177,19 @@ function sortByDesiredOrder(tables: { name: string }[]) {
       "Left Head Light"
   ];
 
-  const anglesToSkip = [
-      "Right Front Fender and Door",
-      "Right Rear Fender and Door",
-      "Left Rear Fender and Door",
-      "Left Front Fender and Door"
-  ];
+  // const anglesToSkip = [
+  //     ""
+  // ];
 
   const sanitizedTables = tables.map(item => ({
       ...item,
       name: item.name.trim().replace(/\n/g, '') // Remove leading/trailing whitespace and newline characters
   }));
 
+  console.log("sanitize",sanitizedTables.map(t =>t.name))
+
   // Filter out the angles to skip
-  const filteredTables = sanitizedTables.filter(item => !anglesToSkip.includes(item.name));
+ // const filteredTables = sanitizedTables.filter(item => !anglesToSkip.includes(item.name));
 
   const sortByObject: { [name: string]: number } = importOrder.reduce((obj, item, index) => {
       return {
@@ -202,7 +198,7 @@ function sortByDesiredOrder(tables: { name: string }[]) {
       };
   }, {});
 
-  const customSort = filteredTables.sort((a, b) => sortByObject[a.name] - sortByObject[b.name]);
+  const customSort = sanitizedTables.sort((a, b) => sortByObject[a.name] - sortByObject[b.name]);
 
   return customSort;
 }

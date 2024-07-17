@@ -9,7 +9,6 @@ import { damageDetection, generateUUID } from '../utils/utils';
 import NavigationConstants from '../constants/NavigationConstants';
 import { ActivityIndicator } from 'react-native-paper';
 import Orientation, { OrientationType } from 'react-native-orientation-locker';
-import CarDetection from '../components/CarDetection';
 import { useDispatch } from 'react-redux';
 import { ACTION_POST_INFERENCE_REQUEST } from '../store/constants';
 
@@ -114,7 +113,6 @@ useEffect(() => {
   return (
     <View style={styles.container}>
       <View style={styles.upperContainer}>
-        {/* <CarDetection/> */}
         {error ?(
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>{`Failed to do the inference:${errorMessage}`}</Text>
