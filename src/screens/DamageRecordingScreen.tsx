@@ -1,4 +1,4 @@
-import React, {useState, useRef, useEffect, useCallback} from 'react';
+import React, {useState, useRef, useEffect, useCallback, useMemo} from 'react';
 import {
   View,
   Text,
@@ -39,7 +39,7 @@ const TARGET_TYPE = 'uint8' as const;
 const TARGET_FORMAT: PixelFormat = 'bgra';
 let extractCurrentFrame: boolean = false;
 let curentAngleName: string='';
-
+const fps : number = 1;
 const DamageRecordingScreen = ({navigation}) => {
   const isFocused = useIsFocused();
   const {hasPermission, requestPermission} = useCameraPermission();
@@ -67,6 +67,7 @@ const DamageRecordingScreen = ({navigation}) => {
     objectDetection.state === 'loaded' ? objectDetection.model : undefined;
   const {resize} = useResizePlugin();
   const counterRef = useRef(0);
+  const [angleColor, setAngleColor] = useState('red'); // Use state for angleColor
 
 
 
@@ -131,15 +132,28 @@ const DamageRecordingScreen = ({navigation}) => {
         }
     }
 
-    if ((normalizeString(curentAngleName) === normalizeString(ang) || isAlloyConditionMet || isFenderAndDoorConditionMet) && acc > 95 && !extractCurrentFrame) {
+    if (normalizeString(curentAngleName) === normalizeString(ang) || isAlloyConditionMet || isFenderAndDoorConditionMet) {
+      if (acc < 40) {
+        setAngleColor('red'); // Update state
+      } else if (acc < 60) {
+        setAngleColor('orange'); // Update state
+      } else if (acc < 100) {
+        setAngleColor('green'); // Update state
+      }
+      if (acc > 95 && !extractCurrentFrame) {
         counterRef.current += 1;
         if (counterRef.current >= 2) {
-            handleImageCapture();
+          handleImageCapture();
+          //angleColor = 'red';
         }
-    } else {
+      } else {
         counterRef.current = 0;
-    }
-}
+      }
+    } else {
+      counterRef.current = 0;
+      setAngleColor('red'); // Update state
+          }
+  }
 
   const myFunctionJS = Worklets.createRunOnJS(setAccuracyAndAnglePrediction);
 
@@ -180,7 +194,6 @@ const DamageRecordingScreen = ({navigation}) => {
     const keys ={0: 'Alloy', 1: 'Front', 2: 'Right Head Light', 3: 'Right Tail Light', 4: 'Front Fender and Door', 5: 'Left Head Light', 6: 'Left Tail Light', 7: 'Rear Fender and Door', 8: 'Trunk'}
     //@ts-ignore
     const maxKey = keys[maxIndex];
-    
     myFunctionJS(maxValue, maxKey);
     console.log('Maximum Value:', maxValue > 0.95 ? true : false, maxValue);
     console.log('Index of Maximum Value:', maxIndex);
@@ -191,8 +204,7 @@ const DamageRecordingScreen = ({navigation}) => {
   const frameProcessor = useFrameProcessor(
     frame => {
       'worklet';
-
-      runAtTargetFps(1, () => {
+      runAtTargetFps(fps, () => {
         'worklet';
         // 1. Resize 4k Frame to 224x224x3 using vision-camera-resize-plugin
         const result = resize(frame, {
@@ -208,11 +220,15 @@ const DamageRecordingScreen = ({navigation}) => {
 
 
         if (model != undefined) {
-          //@ts-ignore
+          //@ts-ignore\
           const output = model.runSync([result]);
           const numDetections = output[0];
           console.log(`Detected ${numDetections} objects!`);
           postProcessing(numDetections);
+          //et endtime = new Date().getTime();
+
+          //console.log(`Time taken: ${(endtime - startTime) / 1000} seconds`);
+
         } else {
           console.log('model not loaded');
         }
@@ -329,7 +345,10 @@ const DamageRecordingScreen = ({navigation}) => {
             type: 'success',
             text1: 'Vehicle angle is correct',
           });
+          //angleColor = 'red'
           //checkAndNavigateToProcessingScreen();
+          setAngleColor('red'); // Update state
+
         } //else {
           //setPreview(false);
           // Toast.show({
@@ -365,18 +384,6 @@ const DamageRecordingScreen = ({navigation}) => {
       (dimensions.height * parseFloat(heightPercent)) / 100,
     );
 
-  const getAccuracyColor = () => {
-    if (accuracy < 40) {
-      return 'red';
-    } else if (accuracy < 60) {
-      return 'orange';
-    } else if (accuracy < 100) {
-      return 'green';
-    } else {
-      return 'red';
-    }
-  };
-
 
   return (
     <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
@@ -388,72 +395,87 @@ const DamageRecordingScreen = ({navigation}) => {
         device={device}
         photoQualityBalance="speed"
         format={format}
-        frameProcessor={frameProcessor}
+       frameProcessor={frameProcessor}
       />
       <View
         style={{
           position: 'absolute',
           alignItems: 'center',
-          right: hp('1%'),
+          left: hp('19%'),
           transform: [{rotate: '90deg'}],
+          // borderWidth: 2,
+          // borderColor: 'rgba(255, 255, 255, 0.4)',
+           height: hp('10%'), 
+          width: wp('100%'), //'100%',
+          padding:hp('1%'),
+         // backgroundColor: 'rgba(0, 0, 0, 0.1)',
         }}>
-        <Progress.Bar
-          progress={progress}
-          style={{position: 'absolute', top: hp('2%')}}
-          width={wp('70%')}
-          height={hp('6%')}
-          borderRadius={hp('5%')}
-          color="#63C85A"
-        />
+
         <View
           style={{
             flexDirection: 'row',
             justifyContent: 'center',
             alignItems: 'center',
-            position: 'absolute',
-            top: hp('10%'),
+            //position: 'absolute',
+            //top: hp('10%'),
+            //marginTop: hp('2%'),
           }}>
           <Text
             style={
               prevStep
                 ? {
-                    fontSize: wp('3%'),
+                    fontSize: wp('3.5%'),
                     fontWeight: 'normal',
-                    borderBottomLeftRadius: hp('4.5%'),
+                    //borderBottomLeftRadius: hp('4.5%'),
                     borderTopLeftRadius: hp('4.5%'),
-                    paddingVertical: hp('2.5%'),
-                    backgroundColor: '#CED5DB',
-                    margin: 1,
-                    width: wp('22%'),
+                    paddingVertical: hp('1%'),
+                    backgroundColor: '#E9ECEF',
+                    //margin: 1,
+                    width: wp('24%'),
+                    color: '#6C757D',
+                    borderColor: '#000',
+                    borderWidth: 1,
+                    height:hp('6%'),
                     textAlign: 'center',
-                    color: '#000',
+                    
+
                   }
                 : {
-                    backgroundColor: 'transparent',
-                    fontSize: wp('3%'),
-                    fontWeight: 'bold',
-                    padding: wp('2%'),
-                    borderRadius: wp('10%'),
-                    margin: 0.2,
-                    width: wp('22%'),
+                  fontSize: wp('3.5%'),
+                    fontWeight: 'normal',
+                    //borderBottomLeftRadius: hp('4.5%'),
+                    borderTopLeftRadius: hp('4.5%'),
+                    paddingVertical: hp('1%'),
+                    backgroundColor: '#E9ECEF',
+                    //margin: 1,
+                    width: wp('24%'),
                     textAlign: 'center',
-                    color: '#000',
+                    color: '#6C757D',
+                    borderColor: '#000',
+                    borderWidth: 1,
+                    height:hp('6%'),
+
                   }
             }>
-            {prevStep ? truncateText(prevStep.name) : ''}
+            {prevStep ? truncateText(prevStep.name) : '-'}
           </Text>
           <Text
+          //numberOfLines={1}
             style={[
               {
-                fontSize: wp('3%'),
+                fontSize: wp('3.5%'),
                 fontWeight: 'bold',
-                paddingVertical: hp('2.5%'),
+                paddingVertical: hp('1%'),
                 paddingHorizontal: wp('2%'),
-                backgroundColor: '#5E9FE4',
-                margin: 1,
-                width: wp('28%'),
+                backgroundColor: '#007BFF',
+                //margin: 1,
+                width: wp('32%'),
                 textAlign: 'center',
-                color: '#000',
+                color: '#FFFFFF',
+                borderColor: '#000',
+                borderWidth: 1,
+                height:hp('6%'),
+                
               },
             ]}>
             {currentStep.name}
@@ -462,32 +484,49 @@ const DamageRecordingScreen = ({navigation}) => {
             style={
               nextStep
                 ? {
-                    fontSize: wp('3%'),
+                    fontSize: wp('3.5%'),
                     fontWeight: 'normal',
-                    borderBottomRightRadius: hp('4.5%'),
+                    //borderBottomRightRadius: hp('4.5%'),
                     borderTopRightRadius: hp('4.5%'),
-                    paddingVertical: hp('2.5%'),
-                    backgroundColor: '#CED5DB',
-                    margin: 1,
-                    width: wp('22%'),
+                    paddingVertical: hp('1%'),
+                    backgroundColor: '#F8F9FA',
+                    //margin: 1,
+                    width: wp('24%'),
                     textAlign: 'center',
-                    color: '#000',
+                    color: '#6C757D',
+                    borderColor: '#000',
+                    borderWidth: 1,
+                    height:hp('6%'),
+
                   }
                 : {
-                    backgroundColor: 'transparent',
-                    fontSize: wp('3%'),
-                    fontWeight: 'bold',
-                    padding: wp('2%'),
-                    borderRadius: wp('10%'),
-                    margin: 0.2,
-                    width: wp('22%'),
-                    textAlign: 'center',
-                    color: '#000',
+                  fontSize: wp('3.5%'),
+                  fontWeight: 'normal',
+                 // borderBottomRightRadius: hp('4.5%'),
+                  borderTopRightRadius: hp('4.5%'),
+                  paddingVertical: hp('1%'),
+                  backgroundColor: '#F8F9FA',
+                  //margin: 1,
+                  width: wp('24%'),
+                  textAlign: 'center',
+                  color: '#6C757D',
+                  borderColor: '#000',
+                  borderWidth: 1,
+                  height:hp('6%'),
+
                   }
             }>
-            {nextStep ? truncateText(nextStep.name) : ''}
+            {nextStep ? truncateText(nextStep.name) : '-'}
           </Text>
         </View>
+        <Progress.Bar
+          progress={progress}
+          style={{borderBottomRightRadius: hp('4.5%'),borderBottomLeftRadius: hp('4.5%'),marginTop: hp('-0.2%'),borderColor: '#000',borderWidth: 1}}
+          width={wp('79.9%')}
+          height={hp('1.8%')}
+          //borderRadius={hp('5%')}
+          color="#63C85A"
+        />
       </View>
       <View
         style={{
@@ -496,56 +535,60 @@ const DamageRecordingScreen = ({navigation}) => {
           alignItems: 'center',
           //top: hp('10%'),
           transform: [{rotate: '90deg'}],
-          right: hp('19%'),
+          right: hp('11%'),
         }}>
         <Image1
           source={{uri: currentStep.overlay_image_path}}
           style={{
-            width: wp('80%'),
+            width: wp('135%'),
             height: hp('50%'),
             resizeMode: 'contain',
-            tintColor: 'white',
+            tintColor: angleColor
           }}
         />
       </View>
       <View
         style={{
           position: 'absolute',
-          top: hp('8%'),
-          left: hp('0.1%'),
-          backgroundColor: 'rgba(0, 0, 0, 0.3)',
+          top: hp('7%'),
+          right: hp('25%'),
+          backgroundColor: 'rgba(0, 0, 0, 0.1)',
           borderRadius: hp('1%'),
           padding: hp('1%'),
           borderWidth: 1,
           borderColor: 'rgba(255, 255, 255, 0.4)',
           transform: [{rotate: '90deg'}],
-          height: hp('21%'),
-          width: wp('62%'),
+          height: hp('15%'),
+          width: wp('52%'),
         }}>
-        <Progress.Bar
+        {/* <Progress.Bar
           progress={accuracy / 100}
           style={{position: 'absolute', top: hp('2%')}}
           width={wp('60%')}
           height={hp('3%')}
           borderRadius={hp('5%')}
           color={getAccuracyColor()}
-        />
+        /> */}
         <View
           style={{
             alignItems: 'flex-start',
             justifyContent: 'center',
-            marginTop: hp('5%'),
+            marginTop: hp('1%'),
           }}>
           <Text
-            style={{fontSize: wp('4%'), color: 'red', marginBottom: hp('1%')}}>
+            style={{fontSize: hp('1.5%'), color: 'white', marginBottom: hp('1%')}}>
             Accuracy: {accuracy}%
           </Text>
           <Text
-            style={{fontSize: wp('4%'), color: 'red', marginBottom: hp('1%')}}>
+            style={{fontSize: hp('1.5%'), color: 'white', marginBottom: hp('1%')}}>
             Angle Name: {angleName}
           </Text>
-          <Text style={{fontSize: wp('4%'), color: 'red'}}>
+          <Text style={{fontSize: hp('1.5%'), color: 'white',marginBottom: hp('1%')}}>
             Accepted Accurary: 95%
+          </Text>
+          <Text style={{fontSize: hp('1.5%'), color: 'white'}}>
+            Frame Rate: {fps}
+            
           </Text>
         </View>
       </View>

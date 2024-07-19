@@ -186,7 +186,6 @@ function sortByDesiredOrder(tables: { name: string }[]) {
       name: item.name.trim().replace(/\n/g, '') // Remove leading/trailing whitespace and newline characters
   }));
 
-  console.log("sanitize",sanitizedTables.map(t =>t.name))
 
   // Filter out the angles to skip
  // const filteredTables = sanitizedTables.filter(item => !anglesToSkip.includes(item.name));
