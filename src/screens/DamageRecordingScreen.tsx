@@ -1,9 +1,8 @@
-import React, {useState, useRef, useEffect} from 'react';
+import React, {useState, useRef, useEffect, useCallback} from 'react';
 import {
   View,
   Text,
-  Image,
-  TouchableOpacity,
+  Image as Image1,
   ActivityIndicator,
   Dimensions,
   PixelRatio,
@@ -12,33 +11,41 @@ import {
 import * as Progress from 'react-native-progress';
 import {
   Camera,
+  runAtTargetFps,
   useCameraDevice,
   useCameraFormat,
   useCameraPermission,
+  useFrameProcessor,
 } from 'react-native-vision-camera';
 import {
-  convertImageToBase64,
-  isValidImage,
+  rotateAndConvertImageToBase64,
   sortByDesiredOrder,
   truncateText,
-  uploadFile,
 } from '../utils/utils';
-import Toast from 'react-native-toast-message';
-import RotatePhoneScreen from '../components/RotatePhoneScreen';
 import NavigationConstants from '../constants/NavigationConstants';
 import {useIsFocused, useRoute} from '@react-navigation/native';
-import { downloadModelFile, getModelUrl, performInference } from '../utils/carDetectionInference';
-import RNFS from 'react-native-fs';
-import { ACTION_POST_INFERENCE_REQUEST } from '../store/constants';
-import { useDispatch } from 'react-redux';
+import {useDispatch} from 'react-redux';
+import {useTensorflowModel} from 'react-native-fast-tflite';
+import {Options, useResizePlugin} from 'vision-camera-resize-plugin';
+import Orientation from 'react-native-orientation-locker';
+import {Worklets} from 'react-native-worklets-core';
+type PixelFormat = Options<'uint8'>['pixelFormat'];
 
+const WIDTH = 224;
+const HEIGHT = 224;
+const TARGET_TYPE = 'uint8' as const;
+const TARGET_FORMAT: PixelFormat = 'bgra';
+let extractCurrentFrame: boolean = false;
+let curentAngleName: string='';
+const fps : number = 1;
+const keys ={0: 'Alloy', 1: 'Front', 2: 'Right Head Light', 3: 'Right Tail Light', 4: 'Front Fender and Door', 5: 'Left Head Light', 6: 'Left Tail Light', 7: 'Rear Fender and Door', 8: 'Trunk'}
+//let totalTime: number = 0;
 const DamageRecordingScreen = ({navigation}) => {
   const isFocused = useIsFocused();
   const {hasPermission, requestPermission} = useCameraPermission();
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [capturedImages, setCapturedImages] = useState([]);
   const cameraRef = useRef(null);
-  const [preview, setPreview] = useState(false);
   const [previewImage, setPreviewImage] = useState('');
   const route = useRoute();
   const data = route.params;
@@ -48,70 +55,212 @@ const DamageRecordingScreen = ({navigation}) => {
   const [isPortrait, setIsPortrait] = useState(
     dimensions.height > dimensions.width,
   );
-  const [processingText, setProcessingText] = useState('Processing Image');
   const dispatch = useDispatch();
+  const [accuracy, setAccuracy] = useState(10);
+  const [angleName, setAngleName] = useState(' ');
+  //const objectDetection = useTensorflowModel(require('../../assets/model/model.tflite'))
+  //const model = objectDetection.state === "loaded" ? objectDetection.model : undefined
+  const objectDetection = useTensorflowModel(
+    require('../../assets/model/05072024_test_background_7_with_splited_without_mean_std_11_best_modified_model_without_cast_fp32.tflite'),
+  );
+  const model =
+    objectDetection.state === 'loaded' ? objectDetection.model : undefined;
+  const {resize} = useResizePlugin();
+  const counterRef = useRef(0);
+  const [angleColor, setAngleColor] = useState('red'); // Use state for angleColor
+ const [totalTime, setTotalTime] = useState(0);
+  const [zoom, setZoom] = useState(1);
 
-  const modelDownload = async () => {
-let modelUrl
-let localModelPath
-    try {
-      let start = Date.now();
 
-      modelUrl = getModelUrl('model/11_last.onnx');
-     localModelPath = `${RNFS.DocumentDirectoryPath}/11_last.onnx`;
-     //@ts-ignore
-    await downloadModelFile(modelUrl, localModelPath);
-    let timeTaken = Date.now() - start;
-    console.log("Total time taken : " + timeTaken + " milliseconds");
-      
-    } catch (error) {
-      const err= `${error}+error`
-      Toast.show({
-        type: 'error',
-        text1:err
-      });
-    }
-    };
+ const device = useCameraDevice('back', {
+  physicalDevices: [
+    'ultra-wide-angle-camera',
+    'wide-angle-camera',
+    'telephoto-camera'
+  ]
+})
+  const format = useCameraFormat(device, [{photoResolution: 'max'}]);
+  const steps = sortByDesiredOrder(data.vehicleInfo.angleTypes);
+  const currentStep = steps[currentStepIndex];
+  const prevStep = currentStepIndex > 0 ? steps[currentStepIndex - 1] : null;
+  const nextStep =
+    currentStepIndex < steps.length - 1 ? steps[currentStepIndex + 1] : null;
+  const progress = scannedImageData.length / steps.length;
+
+
   useEffect(() => {
-    const handleOrientationChange = ({window}) => {
-      setDimensions(window);
-      setIsPortrait(window.height > window.width);
-    };
-
-    const orientationChangeListener = Dimensions.addEventListener(
-      'change',
-      handleOrientationChange,
-    );
-
     if (!hasPermission) {
       requestPermission();
     }
-
-    modelDownload()
-
-    return () => {
-      orientationChangeListener?.remove();
-    };
   }, [hasPermission]);
-
   useEffect(() => {
-    const interval = setInterval(() => {
-      setProcessingText((prev) =>
-        prev.endsWith('.....') ? 'Processing Image' : `${prev}.`
-      );
-    }, 500);
+    // Lock the screen to landscape mode
+    Orientation.lockToPortrait();
 
-    return () => clearInterval(interval);
+    // Unlock orientation when the component is unmounted
+    return () => {
+      Orientation.unlockAllOrientations();
+    };
+  }, []);
+  useEffect(() => {
+    curentAngleName = currentStep.name
+  extractCurrentFrame =false
+  counterRef.current = 0;
+  }, [currentStepIndex]);
+
+useEffect(() => {
+  if(device?.physicalDevices.includes('ultra-wide-angle-camera') || device?.physicalDevices.includes('wide-angle-camera')){
+    setZoom(0.7);
+  }
+}, []);
+
+  function setAccuracyAndAnglePrediction(maxValue: number, ang: any) {
+    const acc = Math.floor(maxValue * 100); 
+    setAccuracy(acc);
+    setAngleName(ang);
+
+    const alloyAngles = [
+        "Right Front Tyre",
+        "Right Rear Tyre",
+        "Left Rear Tyre",
+        "Left Front Tyre"
+    ];
+
+    const fenderAndDoorAngles = {
+        front: ["Right Front Fender and Door", "Left Front Fender and Door"],
+        rear: ["Left Rear Fender and Door", "Right Rear Fender and Door"]
+    };
+
+    const normalizeString = (str: string) => str.replace(/\s+/g, '').toLowerCase();
+    const isAlloyConditionMet = ang === 'Alloy' && alloyAngles.includes(curentAngleName);
+
+    let isFenderAndDoorConditionMet = false;
+    if (ang.includes("Fender and Door")) {
+        if (fenderAndDoorAngles.front.includes(curentAngleName) && ang === "Front Fender and Door") {
+            isFenderAndDoorConditionMet = true;
+        } else if (fenderAndDoorAngles.rear.includes(curentAngleName) && ang === "Rear Fender and Door") {
+            isFenderAndDoorConditionMet = true;
+        }
+    }
+
+    if (normalizeString(curentAngleName) === normalizeString(ang) || isAlloyConditionMet || isFenderAndDoorConditionMet) {
+      if (acc < 40) {
+        setAngleColor('red'); // Update state
+      } else if (acc < 60) {
+        setAngleColor('orange'); // Update state
+      } else if (acc < 100) {
+        setAngleColor('green'); // Update state
+      }
+      if (acc > 95 && !extractCurrentFrame) {
+        counterRef.current += 1;
+        if (counterRef.current >= 2) {
+          extractCurrentFrame=true
+          handleImageCapture();
+          //angleColor = 'red';
+        }
+      } else {
+        counterRef.current = 0;
+      }
+    } else {
+      counterRef.current = 0;
+      setAngleColor('red'); // Update state
+          }
+  }
+
+  const myFunctionJS = Worklets.createRunOnJS(setAccuracyAndAnglePrediction);
+
+  const softmax = (values: any) => {
+    'worklet';
+    const expValues = new Float32Array(values.length);
+    let sumExpValues = 0;
+    for (let i = 0; i < values.length; i++) {
+      expValues[i] = Math.exp(values[i]);
+      sumExpValues += expValues[i];
+    }
+    const softmaxValues = new Float32Array(values.length);
+    for (let i = 0; i < values.length; i++) {
+      softmaxValues[i] = expValues[i] / sumExpValues;
+    }
+    return softmaxValues;
+  };
+  function findMaxValueAndIndex(values: any) {
+    'worklet';
+    let maxValue = values[0];
+    let maxIndex = 0;
+
+    for (let i = 1; i < values.length; i++) {
+      if (values[i] > maxValue) {
+        maxValue = values[i];
+        maxIndex = i;
+      }
+    }
+
+    return {maxValue, maxIndex};
+  }
+  const postProcessing = useCallback((values: any) => {
+    'worklet';
+    const softmaxData = softmax(values);
+    const {maxValue, maxIndex} = findMaxValueAndIndex(softmaxData);
+    // const keys ={0: 'Left Tail Light', 1: 'Right Tail Light', 2: 'Trunk', 3: 'Front', 4: 'Left Head Light', 5: 'Right Side', 6: 'Right Head Light', 7: 'Left Side', 8: 'Alloy'}
+    //@ts-ignore
+    const maxKey = keys[maxIndex];
+    myFunctionJS(maxValue, maxKey);
+    console.log('Maximum Value:', maxValue > 0.95 ? true : false, maxValue);
+    console.log('Index of Maximum Value:', maxIndex);
+    console.log('Key of Maximum Value:', maxKey);
   }, []);
 
-  //console.log("vehicle infor",data.vehicleInfo.id)
+const totalExecuteTime = (startTime:any,endTime:any) => {
+   setTotalTime(endTime - startTime)
+  //console.log(endTime - startTime);
+}
+const myExecutionTime = Worklets.createRunOnJS(totalExecuteTime);
 
 
-  // const handleInferenceRequest = (data: any) => {
-  //   console.log(data)
-  // }
+  const frameProcessor = useFrameProcessor(
+    frame => {
+      'worklet';
+      runAtTargetFps(fps, () => {
+        'worklet';
+        // 1. Resize 4k Frame to 224x224x3 using vision-camera-resize-plugin
+        const startTime = performance.now();
+        const result = resize(frame, {
+          scale: {
+            width: WIDTH,
+            height: HEIGHT,
+          },
+          pixelFormat: 'rgb',
+          dataType: 'float32',
+          //rotation: '90deg',
+          //mirror: true,
+        });
+
+
+        if (model != undefined) {
+          //@ts-ignore\
+          const output = model.runSync([result]);
+          const numDetections = output[0];
+          const endTime = performance.now();
+
+          // console.log(`Detected ${numDetections} objects!`);
+          postProcessing(numDetections);
+          myExecutionTime(startTime,endTime);
+          //et endtime = new Date().getTime();
+
+          //console.log(`Time taken: ${(endtime - startTime) / 1000} seconds`);
+
+        } else {
+          console.log('model not loaded');
+        }
+      });
+    },
+    [model],
+  );
+
   const checkAndNavigateToProcessingScreen = () => {
-    if (capturedImages.length === steps.length) {
+    //console.log("condition to move forward",scannedImageData.length,steps.length);
+    //console.log("condition to move back", Object.keys(scannedImageDataLocal).length)
+    if (scannedImageData.length === steps.length && Object.keys(scannedImageDataLocal).length === steps.length) {
       // const payloadForNextScreen = {
       //   vehicle_id: data.vehicleInfo.id,
       //   client_id: data.vehicleInfo.client_id,
@@ -120,44 +269,41 @@ let localModelPath
       //   scannedImageUrlsLocal: scannedImageDataLocal,
       // };
       const timestamp = Date.now();
-      const startTime = new Date().toISOString()
-  const randomNumber = Math.floor(1000 + Math.random() * 9000);
+      const startTime = new Date().toISOString();
+      const randomNumber = Math.floor(1000 + Math.random() * 9000);
 
-  const latitude=37.7749
-  const longitude=-122.4194
-  const referenceNumber = `REF-${timestamp}-${randomNumber}`
+      const latitude = 37.7749;
+      const longitude = -122.4194;
+      const referenceNumber = `REF-${timestamp}-${randomNumber}`;
 
-  // const payloadData ={
-  //   vehicle_id: data.vehicleInfo.id,
-  //   client_id: data.vehicleInfo.client_id,
-  //   scanned_images: scannedImageData,
-  //   reference_number:referenceNumber,
-  //   startTime: startTime,
-  //   latitude: latitude,
-  //   longitude: longitude,
-  //   status:"Initialize",
-  //   createdBy_id: '3b2d3e5d-4c70-4d4e-9ea7-3d3d29f609b9',
-  // }
-  //     const payload = {
-  //       data: payloadData,
-  //       callback: handleInferenceRequest,
-  //     };
-     
-      const payloadForApiCallAndNextScreen ={
-        vehicle_id:data.vehicleInfo.id,
+      // const payloadData ={
+      //   vehicle_id: data.vehicleInfo.id,
+      //   client_id: data.vehicleInfo.client_id,
+      //   scanned_images: scannedImageData,
+      //   reference_number:referenceNumber,
+      //   startTime: startTime,
+      //   latitude: latitude,
+      //   longitude: longitude,
+      //   status:"Initialize",
+      //   createdBy_id: '3b2d3e5d-4c70-4d4e-9ea7-3d3d29f609b9',
+      // }
+      //     const payload = {
+      //       data: payloadData,
+      //       callback: handleInferenceRequest,
+      //     };
+
+      const payloadForApiCallAndNextScreen = {
+        vehicle_id: data.vehicleInfo.id,
         client_id: data.vehicleInfo.client_id,
         scanned_images: scannedImageData,
         scannedImageUrlsLocal: scannedImageDataLocal,
-        reference_number:referenceNumber,
+        reference_number: referenceNumber,
         startTime: startTime,
         latitude: latitude,
         longitude: longitude,
-        status:"Initialize",
+        status: 'Initialize',
         createdBy_id: '3b2d3e5d-4c70-4d4e-9ea7-3d3d29f609b9',
-
-
-      }
-
+      };
 
       //dispatch({ type: ACTION_POST_INFERENCE_REQUEST, payload });
       navigation.navigate(NavigationConstants.processingScreen, {
@@ -168,66 +314,74 @@ let localModelPath
   };
 
   useEffect(() => {
-    checkAndNavigateToProcessingScreen()
-  }, [capturedImages, data.vehicleInfo.plateNumber, data.vehicleInfo.assessment_id, navigation, scannedImageData, scannedImageDataLocal]);
-
+    checkAndNavigateToProcessingScreen();
+  }, [
+    capturedImages,
+    data.vehicleInfo.plateNumber,
+    data.vehicleInfo.assessment_id,
+    navigation,
+    scannedImageData,
+    scannedImageDataLocal,
+  ]);
 
   const vehicleInfoData = {
     client_id: data.vehicleInfo.client_id,
     vehicle_id: data.vehicleInfo.id,
   };
 
-  const device = useCameraDevice('back');
-  const format = useCameraFormat(device, [{photoResolution: 'max'}]);
-  const steps = sortByDesiredOrder(data.vehicleInfo.angleTypes);
-  const currentStep = steps[currentStepIndex];
-  const prevStep = currentStepIndex > 0 ? steps[currentStepIndex - 1] : null;
-  const nextStep =
-    currentStepIndex < steps.length - 1 ? steps[currentStepIndex + 1] : null;
-  const progress = capturedImages.length / steps.length;
-
   const handleImageCapture = async () => {
     if (cameraRef.current && isFocused) {
       try {
-        const image = await cameraRef.current.takeSnapshot({quality: 100});
+        const image = await cameraRef.current.takePhoto();
+
+
+        console.log("image orientation",image.height,image.width)
+
+
+      const imageData = await rotateAndConvertImageToBase64('file://' + image.path,image.width,image.height);
+
+      //console.log("base64came",base64Image?.slice(0, 10))
         setPreviewImage('file://' + image.path);
-        setPreview(true);
-        //const base64 = await convertImageToBase64(image.path);
-        const [validationResponse, base64Image] = await Promise.all([
-          performInference(currentStep.name,image.path),
-          convertImageToBase64(image.path),
-        ]);
-        if (validationResponse) {
+        //setPreview(true);
+        //const base64Image = await convertImageToBase64(image.path);
+        // const [base64Image] = await Promise.all([
+        //  // performInference(currentStep.name, image.path),
+        //   convertImageToBase64(image.path),
+        // ]);
+        if (imageData?.base64Image) {
           //@ts-ignore
           SetScannedImageData(prevData => [
             ...prevData,
-            { [currentStep.name]: base64Image}
+            {[curentAngleName]: imageData.base64Image},
           ]);
           SetScannedImageDataLocal(prevImageData => ({
             ...prevImageData,
-            [currentStep.name]: 'file://' + image.path,
+            [curentAngleName]: imageData.uri,
           }));
-          setPreview(false);
+         // setPreview(false);
           setCapturedImages([...capturedImages, previewImage]);
-          moveToNextStep();
-          Toast.show({
-            type: 'success',
-            text1: 'Vehicle angle is correct',
-          });
+          //moveToNextStep();
+         setCurrentStepIndex(prevIndex => Math.min(prevIndex + 1, steps.length - 1));
+          // Toast.show({
+          //   type: 'success',
+          //   text1: 'Vehicle angle is correct',
+          // });
+          //angleColor = 'red'
           //checkAndNavigateToProcessingScreen();
+          setAngleColor('red'); // Update state
 
-        } else {
-          setPreview(false);
-          Toast.show({
-            type: 'error',
-            text1: 'Vehicle angle is not correct',
-          });
-        }
+        } //else {
+          //setPreview(false);
+          // Toast.show({
+          //   type: 'error',
+          //   text1: 'Vehicle angle is not correct',
+          // });
+        //}
       } catch (error) {
-        Toast.show({
-          type: 'error',
-          text1: `${error}`,
-        });
+        // Toast.show({
+        //   type: 'error',
+        //   text1: `${error}`,
+        // });
         console.log('Error capturing image:', error);
       }
     } else {
@@ -235,18 +389,9 @@ let localModelPath
     }
   };
 
-  const moveToNextStep = () => {
-    setCurrentStepIndex(prevIndex => Math.min(prevIndex + 1, steps.length - 1));
-  };
-
   if (device == null || !hasPermission) {
     return <ActivityIndicator />;
   }
-
-
-
-
-
   const wp = widthPercent =>
     PixelRatio.roundToNearestPixel(
       (dimensions.width * parseFloat(widthPercent)) / 100,
@@ -256,132 +401,227 @@ let localModelPath
       (dimensions.height * parseFloat(heightPercent)) / 100,
     );
 
+    //console.log("device",dev
+    //console.log(device.physicalDevices[0]) // ['wide-angle-camera', 'telephoto-camera']
+// if(device.physicalDevices.includes('ultra-wide-angle-camera')){
+//   device = device
+// }
   return (
     <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
-      {!preview ? (
-        <>
-          <Camera
-            ref={cameraRef}
-            style={{flex: 1, width: '100%', height: '100%'}}
-            isActive={isFocused && true}
-            photo={true}
-            device={device}
-            photoQualityBalance="speed"
-            format={format}
-          />
-          {!isPortrait && (
-            <>
-            <View style={{position: 'absolute', alignItems: 'center',left: hp('2%'),transform: [{rotate: '-90deg'}]}}>
-              <Progress.Bar
-                progress={progress}
-                style={{position: 'absolute', top: hp('4%')}}
-                width={wp('40%')}
-                height={hp('6%')}
-                borderRadius={hp('5%')}
-                color="#63C85A"
-              />
-              <View
-                style={{
-                  flexDirection: 'row',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  position: 'absolute',
-                  top: hp('12%'),
-                }}>
-                <Text
-                  style={
-                    prevStep
-                      ? {
-                          fontSize: wp('1.8%'),
-                          fontWeight: 'normal',
-                          borderBottomLeftRadius: hp('4.5%'),
-                          borderTopLeftRadius: hp('4.5%'),
-                          paddingVertical: hp('2.5%'),
-                          backgroundColor: '#CED5DB',
-                          margin: 1,
-                          width: wp('11%'),
-                          textAlign: 'center',
-                          color: '#000',
-                        }
-                      : {
-                          backgroundColor: 'transparent',
-                          fontSize: wp('3%'),
-                          fontWeight: 'bold',
-                          padding: wp('2%'),
-                          borderRadius: wp('10%'),
-                          margin: 0.2,
-                          width: wp('11%'),
-                          textAlign: 'center',
-                          color: '#000',
-                        }
-                  }>
-                  {prevStep ? truncateText(prevStep.name) : ''}
-                </Text>
-                <Text
-                  style={[
-                    {
-                      fontSize: wp('1.8%'),
-                      fontWeight: 'bold',
-                      paddingVertical: hp('2.5%'),
-                      paddingHorizontal: wp('2%'),
-                      backgroundColor: '#5E9FE4',
-                      margin: 1,
-                      width: wp('18%'),
-                      textAlign: 'center',
-                      color: '#000',
-                    },
-                  ]}>
-                  {currentStep.name}
-                </Text>
-                <Text
-                  style={
-                    nextStep
-                      ? {
-                          fontSize: wp('1.8%'),
-                          fontWeight: 'normal',
-                          borderBottomRightRadius: hp('4.5%'),
-                          borderTopRightRadius: hp('4.5%'),
-                          paddingVertical: hp('2.5%'),
-                          backgroundColor: '#CED5DB',
-                          margin: 1,
-                          width: wp('11%'),
-                          textAlign: 'center',
-                          color: '#000',
-                        }
-                      : {
-                          backgroundColor: 'transparent',
-                          fontSize: wp('3%'),
-                          fontWeight: 'bold',
-                          padding: wp('2%'),
-                          borderRadius: wp('10%'),
-                          margin: 0.2,
-                          width: wp('11%'),
-                          textAlign: 'center',
-                          color: '#000',
-                        }
-                  }>
-                  {nextStep ? truncateText(nextStep.name) : ''}
-                </Text>
-              </View>
-              </View>
-              <View
-                style={{
-                  ...StyleSheet.absoluteFillObject,
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  top: hp('22%'),
-                }}>
-                <Image
-                  source={{uri: currentStep.overlay_image_path}}
-                  style={{
-                    width: wp('100%'),
-                    height: hp('55%'),
-                    resizeMode: 'contain',
-                    tintColor: 'white',
-                  }}
-                />
-              </View>
-              <TouchableOpacity
+      <Camera
+        ref={cameraRef}
+        style={{flex: 1, width: '100%', height: '100%'}}
+        isActive={isFocused && true}
+        photo={true}
+        device={device}
+        photoQualityBalance="speed"
+        format={format}
+       frameProcessor={frameProcessor}
+       //torch={device.hasTorch ? 'on' : 'off'
+       //zoom={device?.}
+       zoom={zoom}
+
+       //enableZoomGesture={true}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          alignItems: 'center',
+          left: hp('19%'),
+          transform: [{rotate: '90deg'}],
+          // borderWidth: 2,
+          // borderColor: 'rgba(255, 255, 255, 0.4)',
+           height: hp('10%'), 
+          width: wp('100%'), //'100%',
+          padding:hp('1%'),
+         // backgroundColor: 'rgba(0, 0, 0, 0.1)',
+        }}>
+
+        <View
+          style={{
+            flexDirection: 'row',
+            justifyContent: 'center',
+            alignItems: 'center',
+            //position: 'absolute',
+            //top: hp('10%'),
+            //marginTop: hp('2%'),
+          }}>
+          <Text
+            style={
+              prevStep
+                ? {
+                    fontSize: wp('2.8%'),
+                    fontWeight: 'normal',
+                    //borderBottomLeftRadius: hp('4.5%'),
+                    borderTopLeftRadius: hp('4.5%'),
+                    paddingVertical: hp('1%'),
+                    backgroundColor: '#E9ECEF',
+                    //margin: 1,
+                    width: wp('24%'),
+                    color: '#6C757D',
+                    borderColor: '#000',
+                    borderWidth: 1,
+                    height:hp('4%'),
+                    textAlign: 'center',
+                    
+
+                  }
+                : {
+                  fontSize: wp('2.8%'),
+                    fontWeight: 'normal',
+                    //borderBottomLeftRadius: hp('4.5%'),
+                    borderTopLeftRadius: hp('4.5%'),
+                    paddingVertical: hp('1%'),
+                    backgroundColor: '#E9ECEF',
+                    //margin: 1,
+                    width: wp('24%'),
+                    textAlign: 'center',
+                    color: '#6C757D',
+                    borderColor: '#000',
+                    borderWidth: 1,
+                    height:hp('4%'),
+
+                  }
+            }>
+            {prevStep ? truncateText(prevStep.name) : '-'}
+          </Text>
+          <Text
+          numberOfLines={1}
+            style={[
+              {
+                fontSize: wp('2.8%'),
+                fontWeight: 'bold',
+                paddingVertical: hp('1%'),
+                paddingHorizontal: wp('2%'),
+                backgroundColor: angleColor==='green' ? 'green' :'#007BFF',
+                //margin: 1,
+                width: wp('40%'),
+                textAlign: 'center',
+                color: '#FFFFFF',
+                borderColor: '#000',
+                borderWidth: 1,
+                height:hp('4%'),
+                
+              },
+            ]}>
+            {currentStep.name}
+          </Text>
+          <Text
+            style={
+              nextStep
+                ? {
+                    fontSize: wp('2.8%'),
+                    fontWeight: 'normal',
+                    //borderBottomRightRadius: hp('4.5%'),
+                    borderTopRightRadius: hp('4.5%'),
+                    paddingVertical: hp('1%'),
+                    backgroundColor: '#F8F9FA',
+                    //margin: 1,
+                    width: wp('24%'),
+                    textAlign: 'center',
+                    color: '#6C757D',
+                    borderColor: '#000',
+                    borderWidth: 1,
+                    height:hp('4%'),
+
+                  }
+                : {
+                  fontSize: wp('2.8%'),
+                  fontWeight: 'normal',
+                 // borderBottomRightRadius: hp('4.5%'),
+                  borderTopRightRadius: hp('4.5%'),
+                  paddingVertical: hp('1%'),
+                  backgroundColor: '#F8F9FA',
+                  //margin: 1,
+                  width: wp('24%'),
+                  textAlign: 'center',
+                  color: '#6C757D',
+                  borderColor: '#000',
+                  borderWidth: 1,
+                  height:hp('4%'),
+
+                  }
+            }>
+            {nextStep ? truncateText(nextStep.name) : '-'}
+          </Text>
+        </View>
+        <Progress.Bar
+          progress={progress}
+          style={{borderBottomRightRadius: hp('4.5%'),borderBottomLeftRadius: hp('4.5%'),marginTop: hp('-0.2%'),borderColor: '#000',borderWidth: 1}}
+          width={wp('88%')}
+          height={hp('1.8%')}
+          //borderRadius={hp('5%')}
+          color="#63C85A"
+        />
+      </View>
+      <View
+        style={{
+          ...StyleSheet.absoluteFillObject,
+          justifyContent: 'center',
+          alignItems: 'center',
+          //top: hp('10%'),
+          transform: [{rotate: '90deg'}],
+          right: hp('11%'),
+        }}>
+        <Image1
+          source={{uri: currentStep.overlay_image_path}}
+          style={{
+            width: wp('135%'),
+            height: hp('50%'),
+            resizeMode: 'contain',
+            tintColor: angleColor
+          }}
+        />
+      </View>
+      <View
+        style={{
+          position: 'absolute',
+          top: hp('7%'),
+          right: hp('25%'),
+          backgroundColor: 'rgba(0, 0, 0, 0.1)',
+          borderRadius: hp('1%'),
+          padding: hp('1%'),
+          borderWidth: 1,
+          borderColor: 'rgba(255, 255, 255, 0.4)',
+          transform: [{rotate: '90deg'}],
+          height: hp('17%'),
+          width: wp('52%'),
+        }}>
+        {/* <Progress.Bar
+          progress={accuracy / 100}
+          style={{position: 'absolute', top: hp('2%')}}
+          width={wp('60%')}
+          height={hp('3%')}
+          borderRadius={hp('5%')}
+          color={getAccuracyColor()}
+        /> */}
+        <View
+          style={{
+            alignItems: 'flex-start',
+            justifyContent: 'center',
+            marginTop: hp('1%'),
+          }}>
+          <Text
+            style={{fontSize: hp('1.5%'), color: 'white', marginBottom: hp('1%')}}>
+            Accuracy: {accuracy}%
+          </Text>
+          <Text
+            style={{fontSize: hp('1.5%'), color: 'white', marginBottom: hp('1%')}}>
+            Angle Name: {angleName}
+          </Text>
+          <Text style={{fontSize: hp('1.5%'), color: 'white',marginBottom: hp('1%')}}>
+            Accepted Accurary: 95%
+          </Text>
+          {/* <Text style={{fontSize: hp('1.5%'), color: 'white',marginBottom: hp('1%')}}>
+            Frame Rate: {fps}
+          </Text> */}
+          <Text style={{fontSize: hp('1.5%'), color: 'white'}}>
+            Inference Time : {Math.ceil(totalTime)} ms
+          </Text>
+        </View>
+      </View>
+
+      {/* <TouchableOpacity
                 style={{
                   width: wp('10%'),
                   height: wp('10%'),
@@ -392,53 +632,33 @@ let localModelPath
                 }}
                 disabled={capturedImages.length === steps.length || isPortrait}
                 onPress={handleImageCapture}
-              />
-            </>
-          )}
-          {isPortrait && <RotatePhoneScreen />}
-        </>
-      ) : (
-        <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
-          <Image
-            source={{uri: previewImage}}
-            style={{
-              width: wp('100%'),
-              height: hp('100%'),
-              resizeMode: 'contain',
-            }}
-          />
-          <View
-        style={{
-          position: 'absolute',
-          bottom: hp('10%'),
-          //right: '35%',
-          //transform: [{ translateX: -wp('25%') }, { translateY: -hp('2.5%') }],
-          //backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          padding: wp('2%'),
-          borderRadius: wp('1%'),
-        }}
-      >
-        <Text
-          style={{
-            color: '#5E9FE4',
-            fontSize: wp('3%'),
-            fontWeight: 'bold',
-            textAlign: 'center',
-          }}
-        >
-          {processingText}
-        </Text>
-      </View>
-        </View>
-      )}
-      <Toast
+              /> */}
+      {/* <Toast
         position="top"
         bottomOffset={20}
         visibilityTime={2000}
         autoHide={true}
-      />
+      /> */}
     </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  box: {
+    width: 60,
+    height: 60,
+    marginVertical: 20,
+  },
+  canvasWrapper: {
+    position: 'absolute',
+    bottom: 10,
+    left: 10,
+  },
+});
 
 export default DamageRecordingScreen;

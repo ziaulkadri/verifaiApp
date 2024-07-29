@@ -1,10 +1,9 @@
 import axios from 'axios';
 import RNFS from 'react-native-fs';
-import RNFetchBlob, { FetchBlobResponse } from 'rn-fetch-blob';
-import config from '../config/config';
-import ImagePicker from 'react-native-image-crop-picker';
+import RNFetchBlob from 'rn-fetch-blob';
 import ImageEditor from '@react-native-community/image-editor';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import ImageResizer from 'react-native-image-resizer';
 
 const convertImageToBase64 = async (imagePath:any) => {
     try {
@@ -16,8 +15,48 @@ const convertImageToBase64 = async (imagePath:any) => {
       return null;
     }
   };
-
-
+  const rotateAndConvertImageToBase64 = async (imagePath: string,width:any,height:any) => {
+    try {
+     // console.log('Image rotated to base64:', imagePath);
+      // Get the original dimensions of the image
+      //@ts-ignore
+      // const { width, height } = await new Promise((resolve, reject) => {
+      //   Image.getSize(
+      //     imagePath,
+      //     (width, height) => resolve({ width, height }),
+      //     (error) => reject(error)
+      //   );
+      // });
+  
+      const rotationAngle = 0;
+      const newWidth = Math.abs(rotationAngle) === 90 ? height : width;
+      const newHeight = Math.abs(rotationAngle) === 90 ? width : height;
+  
+      const rotatedImage = await ImageResizer.createResizedImage(
+        imagePath,
+        newWidth,
+        newHeight,
+        'JPEG',
+        100,
+        rotationAngle,
+        undefined,
+        false,
+        {
+          onlyScaleDown: false,
+        }
+      );
+  
+      console.log(`Resized Image Path: ${rotatedImage.uri}`);
+     // console.log(`Resized Image Dimensions: ${rotatedImage.width} x ${rotatedImage.height}`);
+      // Read the rotated image as base64
+      const base64Image = await RNFS.readFile(rotatedImage.uri, 'base64');
+     // console.log("base64",base64Image);
+      return {base64Image:base64Image, uri:rotatedImage.uri};
+    } catch (error) {
+      console.error('Error rotating and converting image to base64:', error);
+      return null;
+    }
+  };
   const isValidImage =async (angleName:any,base64Image:any,assessment_id:any)=>{
 
     //console.log("base64", angleName,base64Image);
@@ -65,9 +104,63 @@ const convertImageToBase64 = async (imagePath:any) => {
   };
   
 
-  function sortByDesiredOrder(tables: { name: string }[]) {
-    const importOrder: string[] = 
-    [
+//   function sortByDesiredOrder(tables: { name: string }[]) {
+//     const importOrder: string[] = 
+//     [
+//       "Front",
+//       "Right Head Light",
+//       "Right Front Fender and Door",
+//       "Right Front Tyre",
+//       "Right Rear Fender and Door",
+//       "Right Rear Tyre",
+//       "Right Tail Light",
+//       "Trunk",
+//       "Left Tail Light",
+//       "Left Rear Fender and Door",
+//       "Left Rear Tyre",
+//       "Left Front Fender and Door",
+//       "Left Front Tyre",
+//       "Left Headlight"
+//   ]
+//     // [
+//     //     'Bonnet',
+//     //     'Driver Head Light',
+//     //     'Driver Fender Panel First Door',
+//     //     'Front Driver Side Tyre',
+//     //     'Driver Second Door Quarter Panel',
+//     //     'Back Driver Side Tyre',
+//     //     'Driver Tail Light',
+//     //     'Trunk',
+//     //     'Opposite Tail Light',
+//     //     'Back Opposite Side Tyre',
+//     //     'Opposite Second Door Quarter Panel',
+//     //     'Opposite Fender Panel First Door',
+//     //     'Front Opposite Side Tyre',
+//     //     'Opposite Head Light'
+//     // ];
+
+//     const sanitizedTables = tables.map(item => ({
+//         ...item,
+//         name: item.name.trim().replace(/\n/g, '') // Remove leading/trailing whitespace and newline characters
+//     }));
+
+//     //console.log(sanitizedTables.map(t =>t.name))
+
+//     const sortByObject: { [name: string]: number } = importOrder.reduce((obj, item, index) => {
+//         return {
+//             ...obj,
+//             [item]: index,
+//         };
+//     }, {});
+
+//     const customSort = sanitizedTables.sort((a, b) => sortByObject[a.name] - sortByObject[b.name]);
+
+//     return customSort;
+// }
+
+function sortByDesiredOrder(tables: { name: string }[]) {
+  const importOrder: string[] = 
+  [
       "Front",
       "Right Head Light",
       "Right Front Fender and Door",
@@ -77,46 +170,35 @@ const convertImageToBase64 = async (imagePath:any) => {
       "Right Tail Light",
       "Trunk",
       "Left Tail Light",
-      "Left Rear Tyre",
       "Left Rear Fender and Door",
+      "Left Rear Tyre",
       "Left Front Fender and Door",
       "Left Front Tyre",
-      "Left Headlight"
-  ]
-    // [
-    //     'Bonnet',
-    //     'Driver Head Light',
-    //     'Driver Fender Panel First Door',
-    //     'Front Driver Side Tyre',
-    //     'Driver Second Door Quarter Panel',
-    //     'Back Driver Side Tyre',
-    //     'Driver Tail Light',
-    //     'Trunk',
-    //     'Opposite Tail Light',
-    //     'Back Opposite Side Tyre',
-    //     'Opposite Second Door Quarter Panel',
-    //     'Opposite Fender Panel First Door',
-    //     'Front Opposite Side Tyre',
-    //     'Opposite Head Light'
-    // ];
+      "Left Head Light"
+  ];
+  // const anglesToSkip = [
+  //     ""
+  // ];
 
-    const sanitizedTables = tables.map(item => ({
-        ...item,
-        name: item.name.trim().replace(/\n/g, '') // Remove leading/trailing whitespace and newline characters
-    }));
+  const sanitizedTables = tables.map(item => ({
+      ...item,
+      name: item.name.trim().replace(/\n/g, '') // Remove leading/trailing whitespace and newline characters
+  }));
 
-    //console.log(sanitizedTables.map(t =>t.name))
 
-    const sortByObject: { [name: string]: number } = importOrder.reduce((obj, item, index) => {
-        return {
-            ...obj,
-            [item]: index,
-        };
-    }, {});
+  // Filter out the angles to skip
+ // const filteredTables = sanitizedTables.filter(item => !anglesToSkip.includes(item.name));
 
-    const customSort = sanitizedTables.sort((a, b) => sortByObject[a.name] - sortByObject[b.name]);
+  const sortByObject: { [name: string]: number } = importOrder.reduce((obj, item, index) => {
+      return {
+          ...obj,
+          [item]: index,
+      };
+  }, {});
 
-    return customSort;
+  const customSort = sanitizedTables.sort((a, b) => sortByObject[a.name] - sortByObject[b.name]);
+
+  return customSort;
 }
 
 interface ResponseData {
@@ -162,7 +244,7 @@ interface Coordinate {
 const getDamageMidPoints = (angleData: any): { coordinates: Coordinate[] } => {
   //const angleData = angleData;
 
-  console.log("getDamageMidPoints",angleData);
+  //console.log("getDamageMidPoints",angleData);
   if (!angleData || !angleData.assessmentDamages || angleData.assessmentDamages.length === 0) {
     //console.log("going from here ",angleData.assessmentDamages)
     return { coordinates: [] };
@@ -209,5 +291,6 @@ const cropImage = async (imageUrl: string) => {
     uploadFile,
     generateUUID,
     getDamageMidPoints,
-    cropImage
+    cropImage,
+    rotateAndConvertImageToBase64
   }

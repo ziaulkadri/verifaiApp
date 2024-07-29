@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet,Image, TouchableOpacity } from 'react-native';
 import {
   widthPercentageToDP as wp,
@@ -9,7 +9,6 @@ import { damageDetection, generateUUID } from '../utils/utils';
 import NavigationConstants from '../constants/NavigationConstants';
 import { ActivityIndicator } from 'react-native-paper';
 import Orientation, { OrientationType } from 'react-native-orientation-locker';
-import CarDetection from '../components/CarDetection';
 import { useDispatch } from 'react-redux';
 import { ACTION_POST_INFERENCE_REQUEST } from '../store/constants';
 
@@ -25,6 +24,7 @@ const ProcesssingScreen = ({navigation}) => {
    const dispatch = useDispatch();
    const [assessmentId, setAssessmentId] = useState(null);
 
+   const hasRequestedRef = useRef(true); // Ref to track if the request has been made
 
    
 
@@ -62,9 +62,13 @@ useEffect(() => {
 //     createdBy_id: '3b2d3e5d-4c70-4d4e-9ea7-3d3d29f609b9', 
 // }
 useEffect(() => {
+
+  if(hasRequestedRef.current){
+
+  
   const handleInferenceRequest = (response:any) => {
 
-    console.log("dispatch api response", response);
+    console.log("dispatch api response", response,Object.keys(data.data.scannedImageUrlsLocal).length);
     
 
     navigation.navigate(NavigationConstants.damageResponseViewScreen, {scannedImageLocal:data.data.scannedImageUrlsLocal,response:response })
@@ -106,6 +110,9 @@ useEffect(() => {
 
   dispatch({ type: ACTION_POST_INFERENCE_REQUEST, payload });
 
+  hasRequestedRef.current = false;
+}
+
 }, [dispatch, data]);
       const handleRetry = () => {
         navigation.navigate(NavigationConstants.searchVehicleScreen);
@@ -114,7 +121,6 @@ useEffect(() => {
   return (
     <View style={styles.container}>
       <View style={styles.upperContainer}>
-        {/* <CarDetection/> */}
         {error ?(
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>{`Failed to do the inference:${errorMessage}`}</Text>
@@ -124,7 +130,8 @@ useEffect(() => {
           </View>
         ) :<><ActivityIndicator size={100} color="#1631C2" />
       <Text style={styles.processingText}>{processingText}</Text>
-      <Text style={styles.assessmenText}>{`Assessment ID: ${"data.data.assessment_id"}`}</Text></>}
+      {/* <Text style={styles.assessmenText}>{`Assessment ID: ${"data.data.assessment_id"}`}</Text> */}
+      </>}
        
       </View>
     </View>
