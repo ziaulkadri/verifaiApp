@@ -7,7 +7,6 @@ import { View, Text, FlatList, Image, StyleSheet, Dimensions } from 'react-nativ
 //     "Right Head Light": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUA...",
 //     // Add more images here
 // };
-console.log("hey")
 const numColumns = 2;
 const imageSize = Dimensions.get('window').width / numColumns - 20;
 
@@ -17,7 +16,7 @@ const ImageGridScreen = () => {
     const imagesArray = imageData.data.scanned_images.flatMap(imageObject =>
         Object.entries(imageObject).map(([name, uri]) => ({ name, uri }))
     );
-    //console.log("key",imagesArray);
+    //console.log("key",imagesArray[0].uri);
     //console.log(imageData.data.scanned_images[2].name);
     const renderItem = ({ item }) => (
         <View style={styles.itemContainer}>

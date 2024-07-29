@@ -30,6 +30,9 @@ const DamageResponseViewScreen = ({ navigation }) => {
     } 
   }, [isFocused]);
 
+
+  //console.log("keys1",Object.keys(data.scannedImageLocal).length)
+
   const handleNext = () => {
     if (currentIndex < imageKeys.length - 1) {
       setCurrentIndex(currentIndex + 1);
@@ -52,7 +55,7 @@ const DamageResponseViewScreen = ({ navigation }) => {
 
   const imageData = data.scannedImageLocal[currentImageKey]
 
-  console.log("imageData",imageData)
+  ///console.log("imageData1",data.scannedImageLocal)
 
   //console.log("substring",data.response[currentImageKey]?.ploted_damage.substring(0, 40).replace(/^b'\/9j\//, ''))
   const vehicleAngle = data.response.vehicle_angles.find(
@@ -69,7 +72,7 @@ const DamageResponseViewScreen = ({ navigation }) => {
   const damagePolygon = vehicleAngle ? vehicleAngle.assessmentDamages : [];
 
 
-  console.log("vehicleAngle",vehicleAngle);
+  console.log("cropcordinate",cropCordinate);
 
   // const cropCordinate = data.response[currentImageKey].car_crop
   // const panelPolygon = data.response[currentImageKey].panel_polygon

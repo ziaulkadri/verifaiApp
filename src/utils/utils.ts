@@ -28,7 +28,7 @@ const convertImageToBase64 = async (imagePath:any) => {
       //   );
       // });
   
-      const rotationAngle = -90;
+      const rotationAngle = 0;
       const newWidth = Math.abs(rotationAngle) === 90 ? height : width;
       const newHeight = Math.abs(rotationAngle) === 90 ? width : height;
   
@@ -46,12 +46,12 @@ const convertImageToBase64 = async (imagePath:any) => {
         }
       );
   
-      //console.log(`Resized Image Path: ${rotatedImage.uri}`);
+      console.log(`Resized Image Path: ${rotatedImage.uri}`);
      // console.log(`Resized Image Dimensions: ${rotatedImage.width} x ${rotatedImage.height}`);
       // Read the rotated image as base64
       const base64Image = await RNFS.readFile(rotatedImage.uri, 'base64');
      // console.log("base64",base64Image);
-      return base64Image;
+      return {base64Image:base64Image, uri:rotatedImage.uri};
     } catch (error) {
       console.error('Error rotating and converting image to base64:', error);
       return null;
@@ -176,7 +176,6 @@ function sortByDesiredOrder(tables: { name: string }[]) {
       "Left Front Tyre",
       "Left Head Light"
   ];
-
   // const anglesToSkip = [
   //     ""
   // ];
@@ -245,7 +244,7 @@ interface Coordinate {
 const getDamageMidPoints = (angleData: any): { coordinates: Coordinate[] } => {
   //const angleData = angleData;
 
-  console.log("getDamageMidPoints",angleData);
+  //console.log("getDamageMidPoints",angleData);
   if (!angleData || !angleData.assessmentDamages || angleData.assessmentDamages.length === 0) {
     //console.log("going from here ",angleData.assessmentDamages)
     return { coordinates: [] };

@@ -1,4 +1,4 @@
-import React, {useState, useRef, useEffect, useCallback, useMemo} from 'react';
+import React, {useState, useRef, useEffect, useCallback} from 'react';
 import {
   View,
   Text,
@@ -22,10 +22,8 @@ import {
   sortByDesiredOrder,
   truncateText,
 } from '../utils/utils';
-import Toast from 'react-native-toast-message';
 import NavigationConstants from '../constants/NavigationConstants';
 import {useIsFocused, useRoute} from '@react-navigation/native';
-import {ACTION_POST_INFERENCE_REQUEST} from '../store/constants';
 import {useDispatch} from 'react-redux';
 import {useTensorflowModel} from 'react-native-fast-tflite';
 import {Options, useResizePlugin} from 'vision-camera-resize-plugin';
@@ -40,6 +38,8 @@ const TARGET_FORMAT: PixelFormat = 'bgra';
 let extractCurrentFrame: boolean = false;
 let curentAngleName: string='';
 const fps : number = 1;
+const keys ={0: 'Alloy', 1: 'Front', 2: 'Right Head Light', 3: 'Right Tail Light', 4: 'Front Fender and Door', 5: 'Left Head Light', 6: 'Left Tail Light', 7: 'Rear Fender and Door', 8: 'Trunk'}
+//let totalTime: number = 0;
 const DamageRecordingScreen = ({navigation}) => {
   const isFocused = useIsFocused();
   const {hasPermission, requestPermission} = useCameraPermission();
@@ -61,17 +61,24 @@ const DamageRecordingScreen = ({navigation}) => {
   //const objectDetection = useTensorflowModel(require('../../assets/model/model.tflite'))
   //const model = objectDetection.state === "loaded" ? objectDetection.model : undefined
   const objectDetection = useTensorflowModel(
-    require('../../assets/model/11_last_test_background_7_with_splited_modified_model_1_without_cast_fp32.tflite'),
+    require('../../assets/model/05072024_test_background_7_with_splited_without_mean_std_11_best_modified_model_without_cast_fp32.tflite'),
   );
   const model =
     objectDetection.state === 'loaded' ? objectDetection.model : undefined;
   const {resize} = useResizePlugin();
   const counterRef = useRef(0);
   const [angleColor, setAngleColor] = useState('red'); // Use state for angleColor
+ const [totalTime, setTotalTime] = useState(0);
+  const [zoom, setZoom] = useState(1);
 
 
-
-  const device = useCameraDevice('back');
+ const device = useCameraDevice('back', {
+  physicalDevices: [
+    'ultra-wide-angle-camera',
+    'wide-angle-camera',
+    'telephoto-camera'
+  ]
+})
   const format = useCameraFormat(device, [{photoResolution: 'max'}]);
   const steps = sortByDesiredOrder(data.vehicleInfo.angleTypes);
   const currentStep = steps[currentStepIndex];
@@ -101,7 +108,11 @@ const DamageRecordingScreen = ({navigation}) => {
   counterRef.current = 0;
   }, [currentStepIndex]);
 
-
+useEffect(() => {
+  if(device?.physicalDevices.includes('ultra-wide-angle-camera') || device?.physicalDevices.includes('wide-angle-camera')){
+    setZoom(0.7);
+  }
+}, []);
 
   function setAccuracyAndAnglePrediction(maxValue: number, ang: any) {
     const acc = Math.floor(maxValue * 100); 
@@ -143,6 +154,7 @@ const DamageRecordingScreen = ({navigation}) => {
       if (acc > 95 && !extractCurrentFrame) {
         counterRef.current += 1;
         if (counterRef.current >= 2) {
+          extractCurrentFrame=true
           handleImageCapture();
           //angleColor = 'red';
         }
@@ -188,10 +200,8 @@ const DamageRecordingScreen = ({navigation}) => {
   const postProcessing = useCallback((values: any) => {
     'worklet';
     const softmaxData = softmax(values);
-    console.log("softmaxData",softmaxData)
     const {maxValue, maxIndex} = findMaxValueAndIndex(softmaxData);
     // const keys ={0: 'Left Tail Light', 1: 'Right Tail Light', 2: 'Trunk', 3: 'Front', 4: 'Left Head Light', 5: 'Right Side', 6: 'Right Head Light', 7: 'Left Side', 8: 'Alloy'}
-    const keys ={0: 'Alloy', 1: 'Front', 2: 'Right Head Light', 3: 'Right Tail Light', 4: 'Front Fender and Door', 5: 'Left Head Light', 6: 'Left Tail Light', 7: 'Rear Fender and Door', 8: 'Trunk'}
     //@ts-ignore
     const maxKey = keys[maxIndex];
     myFunctionJS(maxValue, maxKey);
@@ -200,6 +210,12 @@ const DamageRecordingScreen = ({navigation}) => {
     console.log('Key of Maximum Value:', maxKey);
   }, []);
 
+const totalExecuteTime = (startTime:any,endTime:any) => {
+   setTotalTime(endTime - startTime)
+  //console.log(endTime - startTime);
+}
+const myExecutionTime = Worklets.createRunOnJS(totalExecuteTime);
+
 
   const frameProcessor = useFrameProcessor(
     frame => {
@@ -207,6 +223,7 @@ const DamageRecordingScreen = ({navigation}) => {
       runAtTargetFps(fps, () => {
         'worklet';
         // 1. Resize 4k Frame to 224x224x3 using vision-camera-resize-plugin
+        const startTime = performance.now();
         const result = resize(frame, {
           scale: {
             width: WIDTH,
@@ -223,8 +240,11 @@ const DamageRecordingScreen = ({navigation}) => {
           //@ts-ignore\
           const output = model.runSync([result]);
           const numDetections = output[0];
-          console.log(`Detected ${numDetections} objects!`);
+          const endTime = performance.now();
+
+          // console.log(`Detected ${numDetections} objects!`);
           postProcessing(numDetections);
+          myExecutionTime(startTime,endTime);
           //et endtime = new Date().getTime();
 
           //console.log(`Time taken: ${(endtime - startTime) / 1000} seconds`);
@@ -238,7 +258,9 @@ const DamageRecordingScreen = ({navigation}) => {
   );
 
   const checkAndNavigateToProcessingScreen = () => {
-    if (scannedImageData.length === steps.length) {
+    //console.log("condition to move forward",scannedImageData.length,steps.length);
+    //console.log("condition to move back", Object.keys(scannedImageDataLocal).length)
+    if (scannedImageData.length === steps.length && Object.keys(scannedImageDataLocal).length === steps.length) {
       // const payloadForNextScreen = {
       //   vehicle_id: data.vehicleInfo.id,
       //   client_id: data.vehicleInfo.client_id,
@@ -271,16 +293,16 @@ const DamageRecordingScreen = ({navigation}) => {
       //     };
 
       const payloadForApiCallAndNextScreen = {
-        //vehicle_id: data.vehicleInfo.id,
-        //client_id: data.vehicleInfo.client_id,
+        vehicle_id: data.vehicleInfo.id,
+        client_id: data.vehicleInfo.client_id,
         scanned_images: scannedImageData,
         scannedImageUrlsLocal: scannedImageDataLocal,
-        //reference_number: referenceNumber,
-        //startTime: startTime,
-        //latitude: latitude,
-        //longitude: longitude,
-        //status: 'Initialize',
-        //createdBy_id: '3b2d3e5d-4c70-4d4e-9ea7-3d3d29f609b9',
+        reference_number: referenceNumber,
+        startTime: startTime,
+        latitude: latitude,
+        longitude: longitude,
+        status: 'Initialize',
+        createdBy_id: '3b2d3e5d-4c70-4d4e-9ea7-3d3d29f609b9',
       };
 
       //dispatch({ type: ACTION_POST_INFERENCE_REQUEST, payload });
@@ -310,15 +332,15 @@ const DamageRecordingScreen = ({navigation}) => {
   const handleImageCapture = async () => {
     if (cameraRef.current && isFocused) {
       try {
-        const image = await cameraRef.current.takeSnapshot({quality: 100});
+        const image = await cameraRef.current.takePhoto();
 
 
         console.log("image orientation",image.height,image.width)
 
 
-      const base64Image = await rotateAndConvertImageToBase64('file://' + image.path,image.width,image.height);
+      const imageData = await rotateAndConvertImageToBase64('file://' + image.path,image.width,image.height);
 
-      console.log("base64came",base64Image?.slice(0, 10))
+      //console.log("base64came",base64Image?.slice(0, 10))
         setPreviewImage('file://' + image.path);
         //setPreview(true);
         //const base64Image = await convertImageToBase64(image.path);
@@ -326,25 +348,24 @@ const DamageRecordingScreen = ({navigation}) => {
         //  // performInference(currentStep.name, image.path),
         //   convertImageToBase64(image.path),
         // ]);
-        if (base64Image) {
+        if (imageData?.base64Image) {
           //@ts-ignore
           SetScannedImageData(prevData => [
             ...prevData,
-            {[curentAngleName]: base64Image},
+            {[curentAngleName]: imageData.base64Image},
           ]);
           SetScannedImageDataLocal(prevImageData => ({
             ...prevImageData,
-            [curentAngleName]: 'file://' + image.path,
+            [curentAngleName]: imageData.uri,
           }));
          // setPreview(false);
           setCapturedImages([...capturedImages, previewImage]);
-          extractCurrentFrame=true
           //moveToNextStep();
          setCurrentStepIndex(prevIndex => Math.min(prevIndex + 1, steps.length - 1));
-          Toast.show({
-            type: 'success',
-            text1: 'Vehicle angle is correct',
-          });
+          // Toast.show({
+          //   type: 'success',
+          //   text1: 'Vehicle angle is correct',
+          // });
           //angleColor = 'red'
           //checkAndNavigateToProcessingScreen();
           setAngleColor('red'); // Update state
@@ -357,19 +378,15 @@ const DamageRecordingScreen = ({navigation}) => {
           // });
         //}
       } catch (error) {
-        Toast.show({
-          type: 'error',
-          text1: `${error}`,
-        });
+        // Toast.show({
+        //   type: 'error',
+        //   text1: `${error}`,
+        // });
         console.log('Error capturing image:', error);
       }
     } else {
       console.log('Camera is not focused or not available');
     }
-  };
-
-  const moveToNextStep = () => {
-    setCurrentStepIndex(prevIndex => Math.min(prevIndex + 1, steps.length - 1));
   };
 
   if (device == null || !hasPermission) {
@@ -384,7 +401,11 @@ const DamageRecordingScreen = ({navigation}) => {
       (dimensions.height * parseFloat(heightPercent)) / 100,
     );
 
-
+    //console.log("device",dev
+    //console.log(device.physicalDevices[0]) // ['wide-angle-camera', 'telephoto-camera']
+// if(device.physicalDevices.includes('ultra-wide-angle-camera')){
+//   device = device
+// }
   return (
     <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
       <Camera
@@ -396,6 +417,11 @@ const DamageRecordingScreen = ({navigation}) => {
         photoQualityBalance="speed"
         format={format}
        frameProcessor={frameProcessor}
+       //torch={device.hasTorch ? 'on' : 'off'
+       //zoom={device?.}
+       zoom={zoom}
+
+       //enableZoomGesture={true}
       />
       <View
         style={{
@@ -424,7 +450,7 @@ const DamageRecordingScreen = ({navigation}) => {
             style={
               prevStep
                 ? {
-                    fontSize: wp('3.5%'),
+                    fontSize: wp('2.8%'),
                     fontWeight: 'normal',
                     //borderBottomLeftRadius: hp('4.5%'),
                     borderTopLeftRadius: hp('4.5%'),
@@ -435,13 +461,13 @@ const DamageRecordingScreen = ({navigation}) => {
                     color: '#6C757D',
                     borderColor: '#000',
                     borderWidth: 1,
-                    height:hp('6%'),
+                    height:hp('4%'),
                     textAlign: 'center',
                     
 
                   }
                 : {
-                  fontSize: wp('3.5%'),
+                  fontSize: wp('2.8%'),
                     fontWeight: 'normal',
                     //borderBottomLeftRadius: hp('4.5%'),
                     borderTopLeftRadius: hp('4.5%'),
@@ -453,28 +479,28 @@ const DamageRecordingScreen = ({navigation}) => {
                     color: '#6C757D',
                     borderColor: '#000',
                     borderWidth: 1,
-                    height:hp('6%'),
+                    height:hp('4%'),
 
                   }
             }>
             {prevStep ? truncateText(prevStep.name) : '-'}
           </Text>
           <Text
-          //numberOfLines={1}
+          numberOfLines={1}
             style={[
               {
-                fontSize: wp('3.5%'),
+                fontSize: wp('2.8%'),
                 fontWeight: 'bold',
                 paddingVertical: hp('1%'),
                 paddingHorizontal: wp('2%'),
-                backgroundColor: '#007BFF',
+                backgroundColor: angleColor==='green' ? 'green' :'#007BFF',
                 //margin: 1,
-                width: wp('32%'),
+                width: wp('40%'),
                 textAlign: 'center',
                 color: '#FFFFFF',
                 borderColor: '#000',
                 borderWidth: 1,
-                height:hp('6%'),
+                height:hp('4%'),
                 
               },
             ]}>
@@ -484,7 +510,7 @@ const DamageRecordingScreen = ({navigation}) => {
             style={
               nextStep
                 ? {
-                    fontSize: wp('3.5%'),
+                    fontSize: wp('2.8%'),
                     fontWeight: 'normal',
                     //borderBottomRightRadius: hp('4.5%'),
                     borderTopRightRadius: hp('4.5%'),
@@ -496,11 +522,11 @@ const DamageRecordingScreen = ({navigation}) => {
                     color: '#6C757D',
                     borderColor: '#000',
                     borderWidth: 1,
-                    height:hp('6%'),
+                    height:hp('4%'),
 
                   }
                 : {
-                  fontSize: wp('3.5%'),
+                  fontSize: wp('2.8%'),
                   fontWeight: 'normal',
                  // borderBottomRightRadius: hp('4.5%'),
                   borderTopRightRadius: hp('4.5%'),
@@ -512,7 +538,7 @@ const DamageRecordingScreen = ({navigation}) => {
                   color: '#6C757D',
                   borderColor: '#000',
                   borderWidth: 1,
-                  height:hp('6%'),
+                  height:hp('4%'),
 
                   }
             }>
@@ -522,7 +548,7 @@ const DamageRecordingScreen = ({navigation}) => {
         <Progress.Bar
           progress={progress}
           style={{borderBottomRightRadius: hp('4.5%'),borderBottomLeftRadius: hp('4.5%'),marginTop: hp('-0.2%'),borderColor: '#000',borderWidth: 1}}
-          width={wp('79.9%')}
+          width={wp('88%')}
           height={hp('1.8%')}
           //borderRadius={hp('5%')}
           color="#63C85A"
@@ -558,7 +584,7 @@ const DamageRecordingScreen = ({navigation}) => {
           borderWidth: 1,
           borderColor: 'rgba(255, 255, 255, 0.4)',
           transform: [{rotate: '90deg'}],
-          height: hp('15%'),
+          height: hp('17%'),
           width: wp('52%'),
         }}>
         {/* <Progress.Bar
@@ -586,9 +612,11 @@ const DamageRecordingScreen = ({navigation}) => {
           <Text style={{fontSize: hp('1.5%'), color: 'white',marginBottom: hp('1%')}}>
             Accepted Accurary: 95%
           </Text>
-          <Text style={{fontSize: hp('1.5%'), color: 'white'}}>
+          {/* <Text style={{fontSize: hp('1.5%'), color: 'white',marginBottom: hp('1%')}}>
             Frame Rate: {fps}
-            
+          </Text> */}
+          <Text style={{fontSize: hp('1.5%'), color: 'white'}}>
+            Inference Time : {Math.ceil(totalTime)} ms
           </Text>
         </View>
       </View>
@@ -605,12 +633,12 @@ const DamageRecordingScreen = ({navigation}) => {
                 disabled={capturedImages.length === steps.length || isPortrait}
                 onPress={handleImageCapture}
               /> */}
-      <Toast
+      {/* <Toast
         position="top"
         bottomOffset={20}
         visibilityTime={2000}
         autoHide={true}
-      />
+      /> */}
     </View>
   );
 };
